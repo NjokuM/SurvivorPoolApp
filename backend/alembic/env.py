@@ -8,7 +8,7 @@ from sqlalchemy import pool
 from sqlalchemy import create_engine  # ✅ Sync engine for migrations
 from alembic import context
 from app.database import DATABASE_URL
-from app.models.user import Base
+from app.models import Base
 
 # Alembic config
 config = context.config
