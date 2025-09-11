@@ -4,7 +4,7 @@ from sqlalchemy.future import select
 from app.database import get_db
 from app.models.user import User
 from app.utils.auth import verify_password
-from app.schemas.user import UserCreate, UserLogin
+from app.schemas.user_schema import UserCreate, UserLogin
 from app.crud.user_crud import create_user
 
 router = APIRouter(tags=["Auth"])

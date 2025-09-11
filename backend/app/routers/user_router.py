@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
-from app.schemas.user import UserCreate, UserOut
+from app.schemas.user_schema import UserCreate, UserOut
 from app.crud import user_crud as crud_user
 
 router = APIRouter(prefix="/users", tags=["Users"])
@@ -17,3 +17,4 @@ async def get_user(user_id : int, db: AsyncSession=Depends(get_db)):
         raise HTTPException(status_code=404, detail="User not found")
     
     return user
+    

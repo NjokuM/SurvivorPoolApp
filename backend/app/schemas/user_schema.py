@@ -25,13 +25,6 @@ class UserCreate(BaseModel):
     class Config:
         from_attributes = True
         validate_by_name = True
-    
-
-class Team(BaseModel):
-    id : int
-    name : str
-    short_name : str 
-    logo_url : Optional[str]
 
 class UpdateUser(BaseModel):
     userName : Optional[str] = None
@@ -48,5 +41,5 @@ class UpdateUser(BaseModel):
 
 
 class UserLogin(BaseModel):
-    username: str
+    email: EmailStr
     password: str
