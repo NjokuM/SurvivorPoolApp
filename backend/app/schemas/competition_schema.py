@@ -16,6 +16,13 @@ class TeamFilters(BaseModel):
     code : Optional[str] = Field(None) # The short name of a team
     venue: Optional[int] = Field(None) 
 
+class TeamCreate(BaseModel):
+    id : int 
+    name : str
+    short_name : str | None = None
+    competition_id : int | None = None
+    venue_name : str | None = None
+
 class FixtureFilters(BaseModel):
     league : int
     season : int = Field(2025, description="Defaults to current season")
@@ -23,3 +30,11 @@ class FixtureFilters(BaseModel):
     team: Optional[int] = Field(None) # Uses a team ID 
     venue: Optional[int] = Field(None) # Uses a the venues ID 
 
+class FixtureCreate(BaseModel):
+    id : int 
+    competition_id : int
+    home_team_id : int
+    away_team_id : int
+    gameweek : str
+    kickoff_time : str # league.round within the football api
+    pass
