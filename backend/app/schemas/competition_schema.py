@@ -39,9 +39,13 @@ class FixtureFilters(BaseModel):
     venue: Optional[int] = Field(None) # Uses a the venues ID 
 
 class FixtureCreate(BaseModel):
-    id : int 
-    competition_id : int
-    home_team_id : int
-    away_team_id : int
-    gameweek : str
-    kickoff_time : str # league.round within the football api
+    competition_id: int
+    external_id: int
+    home_team_id: int
+    away_team_id: int
+    gameweek: int
+    kickoff_time: datetime # league.round within the football api
+    status: Optional[str] = None
+    home_goals: Optional[int] = None
+    away_goals: Optional[int] = None
+    referee: Optional[str] = None

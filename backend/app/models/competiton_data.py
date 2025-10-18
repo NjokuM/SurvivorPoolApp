@@ -39,11 +39,17 @@ class Fixture(Base):
     __tablename__ = "fixtures"
 
     id = Column(Integer, primary_key=True, index=True)
+    external_id =Column(Integer, unique=True, nullable=False)
     competition_id = Column(Integer, ForeignKey("competitions.id"), nullable=False)
     home_team_id = Column(Integer, ForeignKey("teams.id"), nullable=False)
     away_team_id = Column(Integer, ForeignKey("teams.id"), nullable=False)
     gameweek = Column(Integer, nullable=False)
-    kickoff_time = Column(DateTime, nullable=False)
+    kickoff_time = Column(DateTime(timezone=True), nullable=False)
+    status=Column(String)
+    home_goals=Column(Integer)
+    away_goals=Column(Integer)
+    referee=Column(String)
+    updated_at = Column(DateTime)
 
     __table_args__ = (
         UniqueConstraint("competition_id", "home_team_id", "away_team_id", "kickoff_time", name="uq_fixture"),

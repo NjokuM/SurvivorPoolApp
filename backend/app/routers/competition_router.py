@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException, status
 from fastapi.responses import JSONResponse
 from app.schemas.competition_schema import TeamFilters , LeagueFilters, FixtureFilters
-from app.services.football_api import get_competitions, get_competition_by_id, get_teams,get_teams_by_id, store_teams_from_api, get_fixtures, get_fixtures_by_id,store_league_from_api
+from app.services.football_api import get_competitions, get_competition_by_id, get_teams,get_teams_by_id, store_teams_from_api, store_fixtures_from_api, get_fixtures, get_fixtures_by_id,store_league_from_api
 from app.database import get_db
 router = APIRouter(prefix="/competitions", tags=["Competitions"])
 
@@ -77,5 +77,32 @@ async def fetch_fixtures(fixture_id: int):
     data = await get_fixtures_by_id(fixture_id)
     return data
 
+@router.post("/fixtures/sync")
+async def sync_fixtures(filters: FixtureFilters = Depends(), db: AsyncSession = Depends(get_db)):
+    """This route fetches fixtures from the external API and stores them in the database."""
 
+    try:
+        result = await store_fixtures_from_api(db, filters)
+        inserted = result["inserted"]
+        skipped = result["skipped"]
 
+        if inserted > 0:
+            # New fixture added
+            return JSONResponse(
+                status_code=status.HTTP_201_CREATED,
+                content={"message": "Fixture sync complete", "inserted": inserted, "skipped": skipped}
+            )
+
+        else:
+            # No new fixures added
+            return JSONResponse(
+                status_code=status.HTTP_200_OK,
+                content={"message": "All fixtures already exist", "inserted": inserted, "skipped": skipped}
+            )
+
+    except Exception as e:
+        # Handle unexpected errors
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error syncing fixtures: {str(e)}"
+        )

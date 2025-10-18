@@ -4,8 +4,9 @@ from dotenv import load_dotenv
 from sqlalchemy.future import select
 import httpx
 import os
-from app.schemas.competition_schema import TeamFilters, LeagueFilters, FixtureFilters, TeamCreate, LeagueCreate
-from app.crud.competition_crud import store_team_in_db, store_league_in_db, Competition
+import re
+from app.schemas.competition_schema import TeamFilters, LeagueFilters, FixtureFilters, TeamCreate, LeagueCreate,FixtureCreate
+from app.crud.competition_crud import store_team_in_db, store_league_in_db, store_fixture_in_db, Competition, Fixture, Team
 app=FastAPI()
 
 load_dotenv()
@@ -146,4 +147,76 @@ async def get_fixtures_by_id(fixture_id: int):
 
         api_response = response.json()
         return api_response
+    
+def extract_gameweek(round_str: str) -> int:
+    """
+    Extracts the matchweek number from a round string like
+    "Regular Season - 1" or "Playoffs - 2" and returns it as an integer.
+    """
+    if not round_str:
+        return 0  # fallback if string is missing
+    match = re.search(r'(\d+)$', round_str)
+    if match:
+        return int(match.group(1))
+    return 0  # fallback if no number found
 
+async def store_fixtures_from_api(db: AsyncSession, filters: FixtureFilters):
+    api_response = await get_fixtures(filters)
+    inserted = 0
+    skipped = 0
+
+    for fixture in api_response["response"]:
+        # --- Competition FK ---
+        result = await db.execute(select(Competition).where(Competition.external_id == fixture["league"]["id"]))
+        competition = result.scalar_one_or_none()
+        if not competition:
+            skipped += 1
+            continue
+        competition_id = competition.id
+
+        # --- Home team FK ---
+        result = await db.execute(select(Team).where(Team.external_id == fixture["teams"]["home"]["id"]))
+        home_team = result.scalar_one_or_none()
+        if not home_team:
+            skipped += 1
+            continue
+        home_team_id = home_team.id
+
+        # --- Away team FK ---
+        result = await db.execute(select(Team).where(Team.external_id == fixture["teams"]["away"]["id"]))
+        away_team = result.scalar_one_or_none()
+        if not away_team:
+            skipped += 1
+            continue
+        away_team_id = away_team.id
+
+        # --- Create Fixture object ---
+        fixture_data = FixtureCreate(
+            external_id=fixture["fixture"]["id"],
+            competition_id=competition_id,
+            home_team_id=home_team_id,
+            away_team_id=away_team_id,
+            gameweek=extract_gameweek(fixture["league"]["round"]),
+            kickoff_time=fixture["fixture"]["date"],  # handle tz-aware if needed
+            status=fixture["fixture"]["status"]["short"],
+            home_goals=fixture["goals"]["home"],
+            away_goals=fixture["goals"]["away"],
+            referee=fixture["fixture"]["referee"],
+        )
+
+        # --- Check duplicates ---
+        result = await db.execute(select(Fixture).where(Fixture.external_id == fixture_data.external_id))
+        existing_fixture = result.scalar_one_or_none()
+        if existing_fixture:
+            skipped += 1
+            continue
+
+        # --- Insert ---
+        await store_fixture_in_db(db, fixture_data)
+        inserted += 1
+
+    return {
+        "message": "Fixture sync complete",
+        "inserted": inserted,
+        "skipped": skipped
+    }
