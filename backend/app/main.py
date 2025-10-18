@@ -13,7 +13,5 @@ app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
 app.include_router(user_router.router)
 app.include_router(auth_router.router)
 app.include_router(competition_router.router)
-#app.include_router(team_routes.router)
-#app.include_router(league.routes.router)
 
 

@@ -6,8 +6,14 @@ class Competition(Base):
     __tablename__ = "competitions"
 
     id = Column(Integer, primary_key=True, index=True)
+    external_id = Column(Integer,unique=True,nullable=False)
     name = Column(String, unique=True, nullable=False)
+    season=Column(Integer)
     country = Column(String)
+    type = Column(String)
+    logo = Column(String)
+    created_at = Column(DateTime)
+    updated_at = Column(DateTime)
 
     teams = relationship("Team", back_populates="competition")
 
@@ -15,11 +21,13 @@ class Team(Base):
     __tablename__ = "teams"
 
     id = Column(Integer, primary_key=True, index=True)
+    external_id = Column(Integer,unique=True,nullable=False)
     name = Column(String, nullable=False)
-    short_name = Column(String, nullable=False)
-    competition_id = Column(Integer, ForeignKey("competitions.id"), nullable=False)
+    short_name = Column(String)
+    competition_id = Column(Integer, ForeignKey("competitions.external_id"), nullable=False)
     venue_name = Column(String, nullable=False)
-
+    created_at = Column(DateTime)
+    updated_at = Column(DateTime)
 
     competition = relationship("Competition", back_populates="teams")
 

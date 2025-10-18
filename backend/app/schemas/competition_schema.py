@@ -8,20 +8,28 @@ class LeagueFilters(BaseModel):
     country : Optional[str] = Field(None)
     type : Optional[str] = Field(None) # Type of competition (League or Cup)
 
+class LeagueCreate(BaseModel):
+    external_id: int
+    name: str
+    season: int
+    country: str
+    type: Optional[str] = None
+    logo: str
+
 class TeamFilters(BaseModel):
     league : Optional[int] = Field(None)
     season : int = Field(2025, description="Defaults to current season")
     id : Optional[int] = Field(None) # Team id
     name : Optional[str] = Field(None)
     code : Optional[str] = Field(None) # The short name of a team
-    venue: Optional[int] = Field(None) 
 
 class TeamCreate(BaseModel):
-    id : int 
+    external_id : int 
     name : str
     short_name : str | None = None
     competition_id : int | None = None
     venue_name : str | None = None
+    venue_id: int | None = None
 
 class FixtureFilters(BaseModel):
     league : int
@@ -37,4 +45,3 @@ class FixtureCreate(BaseModel):
     away_team_id : int
     gameweek : str
     kickoff_time : str # league.round within the football api
-    pass
