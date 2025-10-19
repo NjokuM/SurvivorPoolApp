@@ -1,17 +1,44 @@
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { useState } from 'react';
+import API from '../api/api';
 
-export default function LoginScreen({ navigation }) {
+export default function SignupScreen({ navigation }) {
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  const handleLogin = () => {
-    console.log('Login pressed', { email, password });
+  const handleSignup = async () => {
+    try {
+      const formData = new FormData();
+      formData.append("userName", username);
+      formData.append("email", email);
+      formData.append("password", password);
+      formData.append("firstName", "John");  // You can add input fields later
+      formData.append("lastName", "Doe");
+  
+      const res = await API.post("/signup", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+  
+      alert("Signup successful!");
+      navigation.navigate("Login");
+    } catch (error) {
+      console.error("Signup error:", error.response?.data || error.message);
+      alert(error.response?.data?.detail || "Signup failed.");
+    }
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Welcome Back</Text>
+      <Text style={styles.title}>Create Account</Text>
+
+      <TextInput
+        style={styles.input}
+        placeholder="Username"
+        placeholderTextColor="#888"
+        value={username}
+        onChangeText={setUsername}
+      />
 
       <TextInput
         style={styles.input}
@@ -31,12 +58,12 @@ export default function LoginScreen({ navigation }) {
         secureTextEntry
       />
 
-      <TouchableOpacity style={styles.button} onPress={handleLogin}>
-        <Text style={styles.buttonText}>Login</Text>
+      <TouchableOpacity style={styles.button} onPress={handleSignup}>
+        <Text style={styles.buttonText}>Signup</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => navigation.navigate('Signup')}>
-        <Text style={styles.linkText}>Don't have an account? Signup</Text>
+      <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+        <Text style={styles.linkText}>Already have an account? Login</Text>
       </TouchableOpacity>
     </View>
   );

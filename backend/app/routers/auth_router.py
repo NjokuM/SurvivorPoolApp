@@ -57,11 +57,11 @@ async def login(
 
     # Check if user exists and password matches
     if not user or not verify_password(password, user.password):
-        return {"error": "Invalid credentials"}
+        return {"success": False, "message": "Invalid credentials"}
 
     # Store session
     request.session["user_id"] = user.id
-    return {"message": "Logged in successfully"}
+    return {"success": True, "message": "Logged in successfully", "user": {"id": user.id, "email": user.email}}
 
 @router.get("/me")
 async def get_me(request: Request, db: AsyncSession = Depends(get_db)):
