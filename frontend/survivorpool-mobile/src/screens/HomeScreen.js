@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import API from '../api/api';
 import Header from '../component/Header';
 import HomeNav from '../nav/HomeNav';
+import Leaderboard from '../component/Leaderboard';
 import { styles } from './styles/HomeScreen.styles';
 
 export default function HomeScreen({ route, navigation }) {
@@ -228,6 +229,14 @@ export default function HomeScreen({ route, navigation }) {
             </View>
           </View>
         </View>
+
+        {/* Leaderboard */}
+        <Leaderboard
+          participants={league?.participants || []}
+          leagueCountry={league?.country}
+          sessionCode={league?.sessionCode}
+          currentUserId={userId}
+        />
 
         {/* Navigation Tabs */}
         <HomeNav
