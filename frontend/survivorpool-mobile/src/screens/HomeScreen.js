@@ -5,7 +5,11 @@ import API from '../api/api';
 import Header from '../component/Header';
 import HomeNav from '../nav/HomeNav';
 import Leaderboard from '../component/Leaderboard';
+import PlayerSelections from '../component/PlayerSelection';
+import PreviousSelection from '../component/PreviousSelection';
+import RulesBanner from '../component/RulesBanner';
 import { styles } from './styles/HomeScreen.styles';
+
 
 export default function HomeScreen({ route, navigation }) {
   const { userId } = route.params;
@@ -230,14 +234,6 @@ export default function HomeScreen({ route, navigation }) {
           </View>
         </View>
 
-        {/* Leaderboard */}
-        <Leaderboard
-          participants={league?.participants || []}
-          leagueCountry={league?.country}
-          sessionCode={league?.sessionCode}
-          currentUserId={userId}
-        />
-
         {/* Navigation Tabs */}
         <HomeNav
           activeTab={activeTab}
@@ -252,41 +248,78 @@ export default function HomeScreen({ route, navigation }) {
           maxSelections={maxSelections}
         />
 
-        {/* Your Pools Section */}
-        <Text style={styles.sectionTitle}>Your Pools</Text>
-        {userPools.length === 0 ? (
-          <Text style={styles.emptyText}>You haven't joined any pools yet.</Text>
-        ) : (
-          <FlatList
-            data={userPools}
-            keyExtractor={(item) => item.id.toString()}
-            renderItem={renderUserPool}
-            scrollEnabled={false}
+        {/* Standings Tab - Show Leaderboard and Previous Selections */}
+        {activeTab === 'standings' && (
+          <>
+            {/* Leaderboard */}
+            <Leaderboard
+              participants={league?.participants || []}
+              leagueCountry={league?.country}
+              sessionCode={league?.sessionCode}
+              currentUserId={userId}
+            />
+
+            {/* PreviousSelection*/}
+            <PreviousSelection
+              selections={user.selections}
+            />
+          </>
+        )}
+
+        {/* Week 1 Tab - Show Player Selections */}
+        {activeTab === 'week1' && (
+          <PlayerSelections
+            players={league.participants}
+            currentWeek={currentWeek}
+            leagueCountry={league.country}
+            leagueId={league.id}
+            currentUserId={user.id}
           />
         )}
 
-        <View style={styles.divider} />
+        {/* Leagues Tab - Show Create/Join Pools */}
+        {activeTab === 'leagues' && (
+          <>
+            {/* Your Pools Section */}
+            <Text style={styles.sectionTitle}>Your Pools</Text>
+            {userPools.length === 0 ? (
+              <Text style={styles.emptyText}>You haven't joined any pools yet.</Text>
+            ) : (
+              <FlatList
+                data={userPools}
+                keyExtractor={(item) => item.id.toString()}
+                renderItem={renderUserPool}
+                scrollEnabled={false}
+              />
+            )}
 
-        {/* Create Pool Button */}
-        <TouchableOpacity 
-          style={styles.createButton} 
-          onPress={() => navigation.navigate('CreatePool', { userId })}
-        >
-          <Text style={styles.createButtonText}>Create New Pool</Text>
-        </TouchableOpacity>
+            <View style={styles.divider} />
 
-        {/* Available Pools Section */}
-        <Text style={styles.sectionTitle}>Available Pools</Text>
-        {availablePools.length === 0 ? (
-          <Text style={styles.emptyText}>No pools available to join.</Text>
-        ) : (
-          <FlatList
-            data={availablePools}
-            keyExtractor={(item) => item.id.toString()}
-            renderItem={renderAvailablePool}
-            scrollEnabled={false}
-          />
+            {/* Create Pool Button */}
+            <TouchableOpacity
+              style={styles.createButton}
+              onPress={() => navigation.navigate('CreatePool', { userId })}
+            >
+              <Text style={styles.createButtonText}>Create New Pool</Text>
+            </TouchableOpacity>
+
+            {/* Available Pools Section */}
+            <Text style={styles.sectionTitle}>Available Pools</Text>
+            {availablePools.length === 0 ? (
+              <Text style={styles.emptyText}>No pools available to join.</Text>
+            ) : (
+              <FlatList
+                data={availablePools}
+                keyExtractor={(item) => item.id.toString()}
+                renderItem={renderAvailablePool}
+                scrollEnabled={false}
+              />
+            )}
+          </>
         )}
+
+        {/* Rules Banner - Footer */}
+        <RulesBanner />
       </ScrollView>
     </View>
   );
