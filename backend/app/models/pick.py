@@ -14,6 +14,7 @@ class Pick(Base):
     id = Column(Integer, primary_key=True, index=True)
     pool_id = Column(Integer, ForeignKey("pools.id"), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    team_id = Column(Integer, ForeignKey("teams.id"), nullable=False)
     fixture_id = Column(Integer, ForeignKey("fixtures.id"), nullable=False)
     home_score = Column(Integer)
     away_score = Column(Integer)
