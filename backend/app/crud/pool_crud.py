@@ -2,10 +2,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
+from datetime import datetime
 from app.models.pool import Pool, PoolUserStats
 from app.schemas.pool_schema import PoolCreate
 from app.models.pool import PoolUserStats
-from app.schemas.pool_schema import PoolUserStatsCreate
+from app.schemas.pool_schema import PoolUserStatsBase
 
 # Create a new pool
 async def create_pool(db: AsyncSession, pool_data: PoolCreate):
@@ -45,30 +46,24 @@ async def join_pool(db: AsyncSession, pool_id: int, user_id: int):
 
     # Create stats record
     user_stats = PoolUserStats(
-        pool_id=pool_id, user_id=user_id, lives_left=pool.total_lives
+        pool_id=pool_id,
+        user_id=user_id,
+        lives_left=pool.total_lives,
+        eliminated_gameweek=None,
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow()
     )
+
     db.add(user_stats)
-    await db.commit()
-    await db.refresh(user_stats)
-    return user_stats
-
-# --- Create ---
-async def create_pool_user_stats(db: AsyncSession, stats: PoolUserStatsCreate):
-    db_stats = PoolUserStats(
-        pool_id=stats.pool_id,
-        user_id=stats.user_id,
-        lives_left=stats.lives_left,
-        eliminated_gameweek=stats.eliminated_gameweek
-    )
-
-    db.add(db_stats)
     try:
         await db.commit()
-        await db.refresh(db_stats)
-        return db_stats
-    except IntegrityError:
+        await db.refresh(user_stats)
+        return user_stats
+    except IntegrityError as e:
         await db.rollback()
-        raise ValueError("User already has stats for this pool.")
+        if 'unique' in str(e.orig).lower():
+            raise HTTPException(status_code=400, detail="User already joined this pool")
+    raise HTTPException(status_code=400, detail="Database integrity error: " + str(e.orig))
 
 # --- Get all pools for a user ---
 async def get_user_pools(db: AsyncSession, user_id: int):

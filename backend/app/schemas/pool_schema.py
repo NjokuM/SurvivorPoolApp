@@ -1,14 +1,15 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
 
 class PoolBase(BaseModel):
-    name: str
-    description: Optional[str] = None
+    name: str = Field(example = "Premier League Pool")
+    description: Optional[str] = Field(None,example="Weekly survivor challenge")
     competition_id: int
-    start_gameweek: int
-    max_picks_per_team: int = 2
-    total_lives: int = 3
+    # Optional fields handled automatically by the backend if not provided
+    start_gameweek: Optional[int] = None
+    max_picks_per_team: Optional[int] = 2
+    total_lives: Optional[int] = 3
 
 class PoolCreate(PoolBase):
     pass
@@ -22,16 +23,21 @@ class PoolResponse(PoolBase):
 class PoolUserStatsBase(BaseModel):
     pool_id: int
     user_id: int
+
+class PoolJoinRequest(BaseModel):
+    user_id: int
+
+class PoolUserStatsResponse(PoolUserStatsBase):
+    id: int
+    pool_id : int
+    user_id : int
     lives_left: int
     eliminated_gameweek: Optional[int] = None
-
-class PoolUserStatsCreate(PoolUserStatsBase):
-    pass  # same fields when creating a new record
-
-class PoolUserStatsRead(PoolUserStatsBase):
-    id: int
     created_at: datetime
-    updated_at: Optional[datetime] = None
+    updated_at : datetime
 
     class Config:
         orm_mode = True
+
+class PoolWithUsers(PoolResponse):
+    users_stats: List[PoolUserStatsResponse] = []

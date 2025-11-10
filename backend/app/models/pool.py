@@ -24,8 +24,8 @@ class PoolUserStats(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     lives_left = Column(Integer, nullable=False)
     eliminated_gameweek = Column(Integer)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
     pool = relationship("Pool", back_populates="users_stats")
     user = relationship("User")

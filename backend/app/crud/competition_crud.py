@@ -1,5 +1,5 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
+from sqlalchemy import select, func
 from app.models.competiton_data import Team, Competition,Fixture
 from app.schemas.competition_schema import TeamCreate, LeagueCreate,FixtureCreate
 from datetime import datetime
@@ -82,3 +82,26 @@ async def store_fixture_in_db(db: AsyncSession, fixture: FixtureCreate) -> Fixtu
     await db.commit()
     await db.refresh(new_fixture)
     return new_fixture 
+
+async def get_current_gameweek(db, competition_id: int):
+    now = datetime.utcnow()
+    
+    # Try to find the next or ongoing fixture
+    result = await db.execute(
+        select(Fixture.gameweek)
+        .where(Fixture.competition_id == competition_id)
+        .where(Fixture.kickoff_time >= now)
+        .order_by(Fixture.kickoff_time.asc())
+        .limit(1)
+    )
+    next_fixture = result.scalar_one_or_none()
+
+    if next_fixture:
+        return next_fixture
+    
+    # Otherwise fallback to last available gameweek (season finished)
+    result = await db.execute(
+        select(func.max(Fixture.gameweek))
+        .where(Fixture.competition_id == competition_id)
+    )
+    return result.scalar_one()
