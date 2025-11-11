@@ -1,8 +1,10 @@
 from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import HTTPException
 from sqlalchemy import select, func
 from app.models.competiton_data import Team, Competition,Fixture
-from app.schemas.competition_schema import TeamCreate, LeagueCreate,FixtureCreate
+from app.schemas.competition_schema import TeamCreate, LeagueCreate, FixtureCreate, FixtureUpdate
 from datetime import datetime
+
 # Save team to DB if not already existing
 async def store_team_in_db(db: AsyncSession, team: TeamCreate) -> Team:
     # Check if the team already exists
@@ -82,6 +84,26 @@ async def store_fixture_in_db(db: AsyncSession, fixture: FixtureCreate) -> Fixtu
     await db.commit()
     await db.refresh(new_fixture)
     return new_fixture 
+
+async def update_fixture_in_db(db: AsyncSession, fixture: FixtureUpdate):
+    result = await db.execute(select(Fixture).where(Fixture.external_id == fixture.external_id))
+    existing_fixture = result.scalar_one_or_none()
+
+    if not existing_fixture:
+        raise HTTPException(status_code=404, detail=f"Fixture {fixture.external_id} not found")
+
+    # ✅ Update only fields that may have changed
+    existing_fixture.kickoff_time = fixture.kickoff_time or existing_fixture.kickoff_time
+    existing_fixture.status = fixture.status or existing_fixture.status
+    existing_fixture.home_goals = fixture.home_goals if fixture.home_goals is not None else existing_fixture.home_goals
+    existing_fixture.away_goals = fixture.away_goals if fixture.away_goals is not None else existing_fixture.away_goals
+    existing_fixture.referee = fixture.referee or existing_fixture.referee
+    existing_fixture.updated_at = datetime.utcnow()
+
+    db.add(existing_fixture)
+    await db.commit()
+    await db.refresh(existing_fixture)
+    return existing_fixture
 
 async def get_current_gameweek(db, competition_id: int):
     now = datetime.utcnow()
