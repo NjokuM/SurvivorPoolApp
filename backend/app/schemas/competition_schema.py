@@ -49,3 +49,11 @@ class FixtureCreate(BaseModel):
     home_goals: Optional[int] = None
     away_goals: Optional[int] = None
     referee: Optional[str] = None
+
+class FixtureUpdate(BaseModel):
+    external_id: int
+    kickoff_time: Optional[datetime] = None
+    status: Optional[str] = None
+    home_goals: Optional[int] = None
+    away_goals: Optional[int] = None
+    referee: Optional[str] = None
