@@ -24,7 +24,7 @@ class Team(Base):
     external_id = Column(Integer,unique=True,nullable=False)
     name = Column(String, nullable=False)
     short_name = Column(String)
-    competition_id = Column(Integer, ForeignKey("competitions.external_id"), nullable=False)
+    competition_id = Column(Integer, ForeignKey("competitions.id"), nullable=False)
     venue_name = Column(String, nullable=False)
     created_at = Column(DateTime)
     updated_at = Column(DateTime)
