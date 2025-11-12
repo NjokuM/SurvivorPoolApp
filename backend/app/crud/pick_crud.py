@@ -5,12 +5,13 @@ from app.models.pick import Pick
 from app.schemas.pick_schema import PickCreate
 
 # --- Create a Pick ---
-async def create_pick(db: AsyncSession, pick: PickCreate):
+async def create_pick(db: AsyncSession, pick: PickCreate,  competition_id : int):
     db_pick = Pick(
         pool_id=pick.pool_id,
         user_id=pick.user_id,
         team_id=pick.team_id,
-        fixture_id=pick.fixture_id
+        fixture_id=pick.fixture_id,
+        competition_id=competition_id
     )
 
     db.add(db_pick)

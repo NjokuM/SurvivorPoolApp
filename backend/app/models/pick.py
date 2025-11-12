@@ -16,6 +16,7 @@ class Pick(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     team_id = Column(Integer, ForeignKey("teams.id"), nullable=False)
     fixture_id = Column(Integer, ForeignKey("fixtures.id"), nullable=False)
+    competition_id = Column(Integer, ForeignKey("competitions.id"), nullable=False)
     home_score = Column(Integer)
     away_score = Column(Integer)
     result = Column(Enum(PickResultEnum))

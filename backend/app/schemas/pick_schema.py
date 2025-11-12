@@ -14,7 +14,6 @@ class PickBase(BaseModel):
     team_id: int
     fixture_id: int
 
-
 class PickCreate(PickBase):
     """Used when creating a new pick — only requires IDs."""
     pass
@@ -22,6 +21,7 @@ class PickCreate(PickBase):
 class PickRead(PickBase):
     """Returned when reading picks from DB."""
     id: int
+    competition_id : int
     home_score: Optional[int] = None
     away_score: Optional[int] = None
     result: Optional[PickResultEnum] = None
