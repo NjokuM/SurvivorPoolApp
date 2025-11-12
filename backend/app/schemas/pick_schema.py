@@ -25,6 +25,7 @@ class PickRead(PickBase):
     home_score: Optional[int] = None
     away_score: Optional[int] = None
     result: Optional[PickResultEnum] = None
+    points: int | None
     created_at: datetime
 
     class Config:

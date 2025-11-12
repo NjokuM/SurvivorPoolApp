@@ -20,6 +20,7 @@ class Pick(Base):
     home_score = Column(Integer)
     away_score = Column(Integer)
     result = Column(Enum(PickResultEnum))
+    points = Column(Integer, default=0)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     __table_args__ = (
