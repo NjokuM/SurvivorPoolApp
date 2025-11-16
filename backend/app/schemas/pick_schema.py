@@ -30,3 +30,7 @@ class PickRead(PickBase):
 
     class Config:
         orm_mode = True
+
+class PickUpdate(BaseModel):
+    team_id: Optional[int] = None
+    fixture_id: Optional[int] = None
