@@ -2,8 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 from app.database import get_db
-from app.schemas.pool_schema import PoolCreate, PoolResponse, PoolWithUsers, PoolUserStatsResponse,PoolUserStatsBase,PoolJoinRequest
+from app.schemas.pool_schema import PoolCreate, PoolResponse, PoolWithUsers, PoolUserStatsResponse,PoolUserStatsBase,PoolJoinRequest, LeaderboardEntry
 from app.crud import pool_crud, competition_crud
+from app.services import leaderboard 
 
 router = APIRouter(tags=["Pool"])
 
@@ -60,3 +61,8 @@ async def get_user_pools(user_id: int, db: AsyncSession = Depends(get_db)):
     if not pools:
         raise HTTPException(status_code=404, detail="User is not part of any pools.")
     return pools
+
+# --------------------- LEADERBOARD --------------------- #
+@router.get("/pools/{pool_id}/leaderboard", response_model=List[LeaderboardEntry])
+async def get_pool_leaderboard(pool_id: int, db: AsyncSession = Depends(get_db)):
+    return await leaderboard.get_leaderboard(db, pool_id)

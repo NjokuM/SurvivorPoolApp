@@ -41,3 +41,15 @@ class PoolUserStatsResponse(PoolUserStatsBase):
 
 class PoolWithUsers(PoolResponse):
     users_stats: List[PoolUserStatsResponse] = []
+
+class LeaderboardEntry(BaseModel):
+    user_id: int
+    username: str
+    lives_left: int
+    total_points: int
+    eliminated_gameweek: Optional[int]
+    is_eliminated: bool
+    rank: int
+
+    class Config:
+        from_attributes = True

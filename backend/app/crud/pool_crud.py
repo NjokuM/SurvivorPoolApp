@@ -2,6 +2,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
+from sqlalchemy.orm import selectinload
 from datetime import datetime
 from app.models.pool import Pool, PoolUserStats
 from app.schemas.pool_schema import PoolCreate
@@ -23,10 +24,18 @@ async def get_all_pools(db: AsyncSession):
 
 # Get pool by id
 async def get_pool_by_id(db: AsyncSession, pool_id: int):
-    result = await db.execute(select(Pool).filter(Pool.id == pool_id))
+    stmt = (
+        select(Pool)
+        .options(selectinload(Pool.users_stats))
+        .filter(Pool.id == pool_id)
+    )
+
+    result = await db.execute(stmt)
     pool = result.scalar_one_or_none()
+
     if not pool:
         raise HTTPException(status_code=404, detail="Pool not found")
+
     return pool
 
 # ➕ Join a pool
