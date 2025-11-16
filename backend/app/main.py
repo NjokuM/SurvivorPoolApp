@@ -3,6 +3,7 @@ from app.routers import auth_router
 from app.routers import user_router
 from app.routers import pool_router
 from app.routers import pick_router
+from app.routers import admin_routes
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
@@ -18,6 +19,7 @@ app.include_router(auth_router.router)
 app.include_router(competition_router.router)
 app.include_router(pool_router.router)
 app.include_router(pick_router.router)
+app.include_router(admin_routes.router)
 
 app.add_middleware(
     CORSMiddleware,
