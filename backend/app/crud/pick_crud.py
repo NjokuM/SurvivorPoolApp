@@ -40,3 +40,21 @@ async def get_user_picks(db: AsyncSession, user_id: int):
 async def get_pool_picks(db: AsyncSession, pool_id: int):
     result = await db.execute(select(Pick).filter(Pick.pool_id == pool_id))
     return result.scalars().all()
+
+# --- Updates an existing pick in a pool ---
+async def update_pick(db: AsyncSession, pick_id: int, updates: dict):
+    result = await db.execute(select(Pick).filter(Pick.id == pick_id))
+    pick = result.scalar_one_or_none()
+
+    if not pick:
+        return None
+
+    for key, value in updates.items():
+        setattr(pick, key, value)
+    try:
+        await db.commit()
+        await db.refresh(pick)
+        return pick
+    except IntegrityError as e:
+        await db.rollback()
+        raise e
