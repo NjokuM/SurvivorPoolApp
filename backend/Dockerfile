@@ -5,14 +5,14 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # Copy requirements first for caching
-COPY requirements.txt .
+COPY backend/requirements.txt .
 
 # Install dependencies
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the application code
-COPY . .
+# Copy the rest of the application code from backend
+COPY backend/ .
 
 # Expose the port FastAPI will run on
 EXPOSE 8000
