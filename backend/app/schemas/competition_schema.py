@@ -4,6 +4,7 @@ from datetime import datetime
 
 class LeagueFilters(BaseModel):
     id : Optional[int] = Field(None)
+    name : Optional[str] = Field(None)
     season : int = Field(2025, description="Defaults to current season")
     country : Optional[str] = Field(None)
     type : Optional[str] = Field(None) # Type of competition (League or Cup)
@@ -30,6 +31,7 @@ class TeamCreate(BaseModel):
     competition_id : int | None = None
     venue_name : str | None = None
     venue_id: int | None = None
+    logo : str | None = None
 
 class FixtureFilters(BaseModel):
     league : int
