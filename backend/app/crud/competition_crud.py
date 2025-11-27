@@ -23,6 +23,7 @@ async def store_team_in_db(db: AsyncSession, team: TeamCreate) -> Team:
         venue_name=team.venue_name,
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow(),
+        logo=team.logo
     )
 
     db.add(new_team)
