@@ -109,19 +109,40 @@ async def get_teams_by_id(team_id: int):
         api_response = response.json()
         return api_response
     
-async def store_teams_from_api(db:AsyncSession, filters:TeamFilters):
+async def store_teams_from_api(db: AsyncSession, filters: TeamFilters):
     api_response = await get_teams(filters)
 
-    for teams in api_response["response"]:
+    # 1️⃣ The league ID is provided in the filters
+    external_league_id = filters.league
+
+    # 2️⃣ Get internal competition ID from DB
+    result = await db.execute(
+        select(Competition).where(Competition.external_id == external_league_id)
+    )
+    competition = result.scalar_one_or_none()
+
+    if not competition:
+        raise ValueError(f"Competition with external_id {external_league_id} not found. Sync leagues first.")
+
+    competition_id = competition.id
+
+    # 3️⃣ Loop over teams
+    for entry in api_response["response"]:
+
+        team = entry["team"]
+        venue = entry["venue"]
+
         team_data = TeamCreate(
-            external_id=teams["team"]["id"],
-            name=teams["team"]["name"],
-            short_name=teams["team"]["code"],
-            venue_name=teams["venue"]["name"],
-            venue_id=teams["venue"]["id"],
-            competition_id=filters.league,
+            external_id=team["id"],
+            name=team["name"],
+            short_name=team["code"],
+            venue_name=venue["name"],
+            venue_id=venue["id"],
+            logo=team["logo"],
+            competition_id=competition_id,
         )
-        await store_team_in_db(db,team_data)
+
+        await store_team_in_db(db, team_data)
         
 ######### FIXTURES ########
 async def get_fixtures(filters : FixtureFilters):
