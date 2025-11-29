@@ -107,6 +107,9 @@ frontend/survivorpool-mobile/
 ```
 
 ### Database Schema
+
+![Survivor Pool ERD](./Survivor-Pool-ERD.png)
+
 - **Users**: Authentication and profile data
 - **Competitions**: League information (PL, LL, BL, SA, L1)
 - **Teams**: Team details with logos and external IDs
@@ -360,4 +363,12 @@ This project is licensed under the MIT License - see LICENSE file for details.
 
 ---
 
+<<<<<<< Updated upstream
 ⭐ Star this repo if you found it helpful!
+=======
+<<<<<<< HEAD
+⭐ Im looking for a junior software engineering role in London, UK. Please feel free to reach out to me at michaelnjok120@gmail.com ⭐
+=======
+⭐ Star this repo if you found it helpful!
+>>>>>>> 293fdeafea98bf243e33e6d04ccf014c87f4c736
+>>>>>>> Stashed changes
