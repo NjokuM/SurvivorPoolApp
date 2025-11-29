@@ -15,8 +15,6 @@ A full-stack survivor pool application for football leagues (Premier League, La 
 - Email: `firstUserTest@gmail.com`
 - Password: `password`
 
-**Demo Video:** [Link to your demo video showing the mobile app]
-
 ## ✨ Features
 
 ### User Management
