@@ -6,15 +6,23 @@ class Pool(Base):
     __tablename__ = "pools"
 
     id = Column(Integer, primary_key=True, index=True)
+    session_code = Column(String, nullable=False, unique=True)
     name = Column(String, nullable=False)
     description = Column(String)
-    competition_id = Column(Integer, ForeignKey("competitions.id"), nullable=False)
+    competition_id = Column(Integer, ForeignKey("competitions.id"), nullable=True)# TODO nullable = False
     start_gameweek = Column(Integer, nullable=False)
     max_picks_per_team = Column(Integer, nullable=False, default=2)
     total_lives = Column(Integer, nullable=False, default=3)
+    created_by = Column(Integer, ForeignKey("users.id")) # TODO nullable = False
 
     competition = relationship("Competition")
     users_stats = relationship("PoolUserStats", back_populates="pool")
+
+    admin = relationship("User")
+
+    @property
+    def participant_count(self) -> int:
+        return len(self.users_stats) if self.users_stats else 0
 
 class PoolUserStats(Base):
     __tablename__ = "pool_user_stats"

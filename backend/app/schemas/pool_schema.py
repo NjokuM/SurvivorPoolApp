@@ -12,10 +12,11 @@ class PoolBase(BaseModel):
     total_lives: Optional[int] = 3
 
 class PoolCreate(PoolBase):
-    pass
+    created_by: int
 
 class PoolResponse(PoolBase):
     id: int
+    participant_count: int
 
     class Config:
         orm_mode = True  # allows returning SQLAlchemy objects directly
@@ -27,6 +28,10 @@ class PoolUserStatsBase(BaseModel):
 class PoolJoinRequest(BaseModel):
     user_id: int
 
+class PoolJoinByCodeRequest(BaseModel):
+    user_id: int
+    session_code: str
+    
 class PoolUserStatsResponse(PoolUserStatsBase):
     id: int
     pool_id : int

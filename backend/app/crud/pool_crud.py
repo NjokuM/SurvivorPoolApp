@@ -1,3 +1,4 @@
+import secrets
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.exc import IntegrityError
@@ -6,23 +7,44 @@ from sqlalchemy.orm import selectinload
 from datetime import datetime
 from app.models.pool import Pool, PoolUserStats
 from app.schemas.pool_schema import PoolCreate
-from app.models.pool import PoolUserStats
-from app.schemas.pool_schema import PoolUserStatsBase
 
-# Create a new pool
+# --------------------------
+# HELPER: Generate session code
+# --------------------------
+async def generate_session_code(prefix: str) -> str:
+    random_code = secrets.token_hex(3)  # 6-char hex
+    return f"{prefix}{random_code}".upper() 
+
+# --------------------------
+# CREATE POOL
+# --------------------------
 async def create_pool(db: AsyncSession, pool_data: PoolCreate):
-    new_pool = Pool(**pool_data.model_dump())
+
+    # 2. Generate session code
+    session_code = await generate_session_code("TST")
+
+    # 3. Create pool object
+    pool_dict = pool_data.model_dump()
+    pool_dict["session_code"] = session_code
+
+    new_pool = Pool(**pool_dict)
+
     db.add(new_pool)
     await db.commit()
     await db.refresh(new_pool)
+    
     return new_pool
 
-# Get all pools
+# --------------------------
+# GET ALL POOLS
+# --------------------------
 async def get_all_pools(db: AsyncSession):
-    result = await db.execute(select(Pool))
+    result = await db.execute(select(Pool).options(selectinload(Pool.users_stats)))
     return result.scalars().all()
 
-# Get pool by id
+# --------------------------
+# GET POOL BY ID
+# --------------------------
 async def get_pool_by_id(db: AsyncSession, pool_id: int):
     stmt = (
         select(Pool)
@@ -38,22 +60,23 @@ async def get_pool_by_id(db: AsyncSession, pool_id: int):
 
     return pool
 
-# ➕ Join a pool
+# --------------------------
+# JOIN POOL BY ID
+# --------------------------
 async def join_pool(db: AsyncSession, pool_id: int, user_id: int):
-    # Ensure pool exists
     pool = await get_pool_by_id(db, pool_id)
 
     # Check if user already joined
     result = await db.execute(
         select(PoolUserStats).filter(
-            PoolUserStats.pool_id == pool_id, PoolUserStats.user_id == user_id
+            PoolUserStats.pool_id == pool_id,
+            PoolUserStats.user_id == user_id
         )
     )
-    existing = result.scalar_one_or_none()
-    if existing:
+    if result.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="User already joined this pool")
 
-    # Create stats record
+    # Create user stats
     user_stats = PoolUserStats(
         pool_id=pool_id,
         user_id=user_id,
@@ -64,31 +87,57 @@ async def join_pool(db: AsyncSession, pool_id: int, user_id: int):
     )
 
     db.add(user_stats)
+
     try:
         await db.commit()
         await db.refresh(user_stats)
         return user_stats
+
     except IntegrityError as e:
         await db.rollback()
-        if 'unique' in str(e.orig).lower():
-            raise HTTPException(status_code=400, detail="User already joined this pool")
-    raise HTTPException(status_code=400, detail="Database integrity error: " + str(e.orig))
+        raise HTTPException(status_code=400, detail="Database error: " + str(e.orig))
 
-# --- Get all pools for a user ---
+
+# --------------------------
+# JOIN POOL BY SESSION CODE
+# --------------------------
+async def join_pool_by_code(db: AsyncSession, session_code: str, user_id: int):
+    # 1. Look up pool by session_code
+    result = await db.execute(
+        select(Pool).filter(Pool.session_code == session_code)
+    )
+    pool = result.scalar_one_or_none()
+
+    if not pool:
+        raise HTTPException(status_code=404, detail="Invalid session code")
+
+    # 2. Reuse join_pool logic
+    return await join_pool(db, pool.id, user_id)
+
+
+# --------------------------
+# GET POOLS FOR USER
+# --------------------------
 async def get_user_pools(db: AsyncSession, user_id: int):
     result = await db.execute(
         select(PoolUserStats).where(PoolUserStats.user_id == user_id)
     )
     return result.scalars().all()
 
-# --- Get all users (and stats) in a pool ---
+
+# --------------------------
+# GET USERS IN POOL
+# --------------------------
 async def get_pool_users(db: AsyncSession, pool_id: int):
     result = await db.execute(
         select(PoolUserStats).where(PoolUserStats.pool_id == pool_id)
     )
     return result.scalars().all()
 
-# --- Get a specific user's stats for a pool ---
+
+# --------------------------
+# GET USER STATS IN POOL
+# --------------------------
 async def get_pool_user_stats(db: AsyncSession, pool_id: int, user_id: int):
     result = await db.execute(
         select(PoolUserStats).where(
@@ -98,7 +147,10 @@ async def get_pool_user_stats(db: AsyncSession, pool_id: int, user_id: int):
     )
     return result.scalar_one_or_none()
 
-# --- Update user stats ---
+
+# --------------------------
+# UPDATE USER STATS
+# --------------------------
 async def update_pool_user_stats(
     db: AsyncSession,
     pool_id: int,
@@ -112,6 +164,7 @@ async def update_pool_user_stats(
 
     if lives_left is not None:
         stats.lives_left = lives_left
+        
     if eliminated_gameweek is not None:
         stats.eliminated_gameweek = eliminated_gameweek
 
