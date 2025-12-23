@@ -10,6 +10,8 @@ import MyPoolsScreen from './src/screens/MyPoolsScreen';
 import PoolDetailScreen from './src/screens/PoolDetailScreen';
 import JoinCreatePoolScreen from './src/screens/JoinCreatePoolScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
+import EditProfileScreen from './src/screens/EditProfileScreen';
+import ChangePasswordScreen from './src/screens/ChangePasswordScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -90,6 +92,8 @@ function AppNavigator() {
         <Stack.Screen name="Signup" component={SignupScreen} />
         <Stack.Screen name="Main" component={MainTabs} />
         <Stack.Screen name="PoolDetail" component={PoolDetailScreen} />
+        <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+        <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

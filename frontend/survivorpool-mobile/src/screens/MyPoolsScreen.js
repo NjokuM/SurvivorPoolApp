@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/colors';
 import apiService from '../api/apiService';
 import { createStyles } from './styles/MyPoolsScreen.styles';
+import { EmptyState } from '../components/EmptyState';
 
 export default function MyPoolsScreen({ route, navigation }) {
   const { userId } = route.params;
@@ -86,13 +87,6 @@ export default function MyPoolsScreen({ route, navigation }) {
           <Text style={styles.greeting}>Welcome back,</Text>
           <Text style={styles.username}>{user?.username || 'Player'}</Text>
         </View>
-        <View style={styles.headerRight}>
-          <View style={styles.avatarContainer}>
-            <Text style={styles.avatarText}>
-              {(user?.username || 'U')[0].toUpperCase()}
-            </Text>
-          </View>
-        </View>
       </View>
 
       <ScrollView
@@ -129,21 +123,11 @@ export default function MyPoolsScreen({ route, navigation }) {
 
         {/* Pools List */}
         {pools.length === 0 ? (
-          <View style={styles.emptyState}>
-            <View style={styles.emptyIcon}>
-              <Ionicons name="people-outline" size={48} color={colors.textMuted} />
-            </View>
-            <Text style={styles.emptyTitle}>No Pools Yet</Text>
-            <Text style={styles.emptyText}>
-              Join a pool with a session code or create your own to get started!
-            </Text>
-            <TouchableOpacity 
-              style={styles.primaryButton}
-              onPress={() => navigation.navigate('JoinCreate')}
-            >
-              <Text style={styles.primaryButtonText}>Join or Create Pool</Text>
-            </TouchableOpacity>
-          </View>
+          <EmptyState
+            type="noPools"
+            actionLabel="Join or Create Pool"
+            onAction={() => navigation.navigate('JoinCreate')}
+          />
         ) : (
           pools.map((pool) => {
             const deadline = getDeadlineInfo(pool);

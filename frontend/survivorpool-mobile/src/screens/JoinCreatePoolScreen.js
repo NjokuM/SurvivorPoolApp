@@ -1,6 +1,7 @@
-import { View, Text, TextInput, TouchableOpacity, ScrollView, StatusBar, KeyboardAvoidingView, Platform } from 'react-native';
-import { useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, StatusBar, KeyboardAvoidingView, Platform, Modal, FlatList } from 'react-native';
+import { useState, useMemo } from 'react';
 import { Ionicons } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
 import { useTheme } from '../theme/colors';
 import apiService from '../api/apiService';
 import { createStyles } from './styles/JoinCreatePoolScreen.styles';
@@ -21,6 +22,8 @@ export default function JoinCreatePoolScreen({ route, navigation }) {
   const [totalLives, setTotalLives] = useState('3');
   const [maxPicksPerTeam, setMaxPicksPerTeam] = useState('2');
   const [createdCode, setCreatedCode] = useState(null);
+  const [leagueModalVisible, setLeagueModalVisible] = useState(false);
+  const [leagueSearch, setLeagueSearch] = useState('');
 
   const LEAGUES = [
     { id: 1, name: 'Premier League', country: 'England', icon: '🏴󠁧󠁢󠁥󠁮󠁧󠁿' },
@@ -28,7 +31,22 @@ export default function JoinCreatePoolScreen({ route, navigation }) {
     { id: 3, name: 'Bundesliga', country: 'Germany', icon: '🇩🇪' },
     { id: 4, name: 'Serie A', country: 'Italy', icon: '🇮🇹' },
     { id: 5, name: 'Ligue 1', country: 'France', icon: '🇫🇷' },
+    { id: 6, name: 'Eredivisie', country: 'Netherlands', icon: '🇳🇱' },
+    { id: 7, name: 'Primeira Liga', country: 'Portugal', icon: '🇵🇹' },
+    { id: 8, name: 'Scottish Premiership', country: 'Scotland', icon: '🏴󠁧󠁢󠁳󠁣󠁴󠁿' },
+    { id: 9, name: 'Belgian Pro League', country: 'Belgium', icon: '🇧🇪' },
+    { id: 10, name: 'Super Lig', country: 'Turkey', icon: '🇹🇷' },
   ];
+
+  const filteredLeagues = useMemo(() => {
+    if (!leagueSearch.trim()) return LEAGUES;
+    const search = leagueSearch.toLowerCase();
+    return LEAGUES.filter(
+      league => 
+        league.name.toLowerCase().includes(search) || 
+        league.country.toLowerCase().includes(search)
+    );
+  }, [leagueSearch]);
 
   const generateSessionCode = () => {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -93,9 +111,9 @@ export default function JoinCreatePoolScreen({ route, navigation }) {
     }
   };
 
-  const copyToClipboard = () => {
-    // In real app, use Clipboard API
-    alert(`Code copied: ${createdCode}`);
+  const copyToClipboard = async () => {
+    await Clipboard.setStringAsync(createdCode);
+    alert('Code copied to clipboard!');
   };
 
   return (
@@ -214,26 +232,23 @@ export default function JoinCreatePoolScreen({ route, navigation }) {
 
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>League *</Text>
-                <View style={styles.leagueGrid}>
-                  {LEAGUES.map((league) => (
-                    <TouchableOpacity
-                      key={league.id}
-                      style={[
-                        styles.leagueOption,
-                        selectedLeague?.id === league.id && styles.leagueOptionSelected,
-                      ]}
-                      onPress={() => setSelectedLeague(league)}
-                    >
-                      <Text style={styles.leagueIcon}>{league.icon}</Text>
-                      <Text style={[
-                        styles.leagueName,
-                        selectedLeague?.id === league.id && styles.leagueNameSelected,
-                      ]}>
-                        {league.name}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
+                <TouchableOpacity 
+                  style={styles.leagueSelector}
+                  onPress={() => setLeagueModalVisible(true)}
+                >
+                  {selectedLeague ? (
+                    <View style={styles.leagueSelectorContent}>
+                      <Text style={styles.leagueSelectorIcon}>{selectedLeague.icon}</Text>
+                      <View style={styles.leagueSelectorText}>
+                        <Text style={styles.leagueSelectorName}>{selectedLeague.name}</Text>
+                        <Text style={styles.leagueSelectorCountry}>{selectedLeague.country}</Text>
+                      </View>
+                    </View>
+                  ) : (
+                    <Text style={styles.leagueSelectorPlaceholder}>Select a league...</Text>
+                  )}
+                  <Ionicons name="chevron-down" size={20} color={colors.textMuted} />
+                </TouchableOpacity>
               </View>
 
               <View style={styles.inputRow}>
@@ -374,6 +389,74 @@ export default function JoinCreatePoolScreen({ route, navigation }) {
 
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* League Selection Modal */}
+      <Modal
+        visible={leagueModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setLeagueModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select League</Text>
+              <TouchableOpacity onPress={() => setLeagueModalVisible(false)}>
+                <Ionicons name="close" size={24} color={colors.textPrimary} />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.searchContainer}>
+              <Ionicons name="search" size={20} color={colors.textMuted} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search leagues..."
+                placeholderTextColor={colors.placeholder}
+                value={leagueSearch}
+                onChangeText={setLeagueSearch}
+                autoCapitalize="none"
+              />
+              {leagueSearch.length > 0 && (
+                <TouchableOpacity onPress={() => setLeagueSearch('')}>
+                  <Ionicons name="close-circle" size={20} color={colors.textMuted} />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <FlatList
+              data={filteredLeagues}
+              keyExtractor={(item) => item.id.toString()}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[
+                    styles.leagueListItem,
+                    selectedLeague?.id === item.id && styles.leagueListItemSelected,
+                  ]}
+                  onPress={() => {
+                    setSelectedLeague(item);
+                    setLeagueModalVisible(false);
+                    setLeagueSearch('');
+                  }}
+                >
+                  <Text style={styles.leagueListIcon}>{item.icon}</Text>
+                  <View style={styles.leagueListText}>
+                    <Text style={styles.leagueListName}>{item.name}</Text>
+                    <Text style={styles.leagueListCountry}>{item.country}</Text>
+                  </View>
+                  {selectedLeague?.id === item.id && (
+                    <Ionicons name="checkmark-circle" size={24} color={colors.accent} />
+                  )}
+                </TouchableOpacity>
+              )}
+              ListEmptyComponent={
+                <View style={styles.emptySearch}>
+                  <Text style={styles.emptySearchText}>No leagues found</Text>
+                </View>
+              }
+            />
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

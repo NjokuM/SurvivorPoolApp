@@ -308,14 +308,14 @@ export default function PoolDetailScreen({ route, navigation }) {
                     />
                     <Text style={styles.teamName} numberOfLines={1}>{team.name}</Text>
                     <Text style={styles.teamFixture} numberOfLines={1}>{team.nextMatch}</Text>
-                    {usedCount > 0 && (
-                      <View style={styles.usedBadge}>
-                        <Text style={styles.usedBadgeText}>Used {usedCount}x</Text>
+                    {usedCount > 0 && !isMaxed && (
+                      <View style={styles.usedCountBadge}>
+                        <Text style={styles.usedCountText}>{usedCount}</Text>
                       </View>
                     )}
                     {isSelected && (
                       <View style={styles.selectedIndicator}>
-                        <Ionicons name="checkmark-circle" size={20} color={colors.accent} />
+                        <Ionicons name="checkmark-circle" size={16} color={colors.accent} />
                       </View>
                     )}
                   </TouchableOpacity>

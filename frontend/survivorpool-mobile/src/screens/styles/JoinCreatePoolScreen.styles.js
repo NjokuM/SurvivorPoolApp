@@ -179,37 +179,121 @@ export const createStyles = (colors) => StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
   },
-  leagueGrid: {
+  // League Selector (dropdown style)
+  leagueSelector: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.inputBackground,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 14,
   },
-  leagueOption: {
-    width: '48%',
+  leagueSelectorContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  leagueSelectorIcon: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  leagueSelectorText: {
+    flex: 1,
+  },
+  leagueSelectorName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  leagueSelectorCountry: {
+    fontSize: 12,
+    color: colors.textMuted,
+    marginTop: 2,
+  },
+  leagueSelectorPlaceholder: {
+    fontSize: 15,
+    color: colors.placeholder,
+    flex: 1,
+  },
+  // League Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'flex-start',
+    paddingTop: 60,
+  },
+  modalContent: {
+    backgroundColor: colors.surface,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    maxHeight: '70%',
+    paddingBottom: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.inputBackground,
     borderRadius: 12,
-    padding: 12,
-    borderWidth: 2,
-    borderColor: colors.border,
+    margin: 16,
+    paddingHorizontal: 12,
     gap: 8,
   },
-  leagueOptionSelected: {
-    borderColor: colors.accent,
-    backgroundColor: colors.accent + '15',
-  },
-  leagueIcon: {
-    fontSize: 20,
-  },
-  leagueName: {
-    fontSize: 13,
-    fontWeight: '600',
+  searchInput: {
+    flex: 1,
+    height: 44,
+    fontSize: 15,
     color: colors.textPrimary,
+  },
+  leagueListItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  leagueListItemSelected: {
+    backgroundColor: colors.accent + '10',
+  },
+  leagueListIcon: {
+    fontSize: 28,
+    marginRight: 14,
+  },
+  leagueListText: {
     flex: 1,
   },
-  leagueNameSelected: {
-    color: colors.accent,
+  leagueListName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  leagueListCountry: {
+    fontSize: 13,
+    color: colors.textMuted,
+    marginTop: 2,
+  },
+  emptySearch: {
+    padding: 40,
+    alignItems: 'center',
+  },
+  emptySearchText: {
+    fontSize: 15,
+    color: colors.textMuted,
   },
   primaryButton: {
     width: '100%',

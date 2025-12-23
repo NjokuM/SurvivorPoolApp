@@ -5,6 +5,9 @@ export const createStyles = (colors) => StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  skeletonContainer: {
+    padding: 16,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
