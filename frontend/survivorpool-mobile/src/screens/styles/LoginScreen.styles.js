@@ -1,11 +1,9 @@
-import { StyleSheet, Dimensions } from 'react-native';
+import { StyleSheet, Platform } from 'react-native';
 
-const { width } = Dimensions.get('window');
-
-export const styles = StyleSheet.create({
+export const createStyles = (colors) => StyleSheet.create({
   scrollContainer: {
     flexGrow: 1,
-    backgroundColor: '#0f0f23',
+    backgroundColor: colors.background,
   },
   container: {
     flex: 1,
@@ -21,36 +19,36 @@ export const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: 'rgba(55, 0, 60, 0.3)',
+    backgroundColor: colors.primary + '30',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
     borderWidth: 2,
-    borderColor: '#00ff85',
+    borderColor: colors.accent,
   },
   mainTitle: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#ffffff',
+    color: colors.textPrimary,
     marginBottom: 8,
     letterSpacing: 0.5,
   },
   subtitle: {
     fontSize: 15,
-    color: 'rgba(255, 255, 255, 0.6)',
+    color: colors.textMuted,
     textAlign: 'center',
   },
   card: {
-    backgroundColor: '#1a1a2e',
+    backgroundColor: colors.surface,
     borderRadius: 20,
     padding: 28,
-    shadowColor: '#00ff85',
+    shadowColor: colors.accent,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 20,
     elevation: 8,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: colors.border,
   },
   cardHeader: {
     marginBottom: 28,
@@ -59,12 +57,12 @@ export const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 26,
     fontWeight: '700',
-    color: '#ffffff',
+    color: colors.textPrimary,
     marginBottom: 8,
   },
   cardDescription: {
     fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.5)',
+    color: colors.textMuted,
     textAlign: 'center',
   },
   form: {
@@ -76,7 +74,7 @@ export const styles = StyleSheet.create({
   label: {
     fontSize: 13,
     fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: colors.textSecondary,
     marginBottom: 10,
     textTransform: 'uppercase',
     letterSpacing: 1,
@@ -89,29 +87,29 @@ export const styles = StyleSheet.create({
   },
   forgotPassword: {
     fontSize: 12,
-    color: '#00ff85',
+    color: colors.accent,
     fontWeight: '600',
   },
   input: {
     height: 52,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
+    borderColor: colors.borderLight,
     borderWidth: 1.5,
     borderRadius: 12,
     paddingHorizontal: 16,
     fontSize: 16,
-    color: '#ffffff',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    color: colors.textPrimary,
+    backgroundColor: colors.inputBackground,
   },
   inputFocused: {
-    borderColor: '#00ff85',
-    backgroundColor: 'rgba(0, 255, 133, 0.05)',
+    borderColor: colors.borderFocus,
+    backgroundColor: colors.inputBackgroundFocus,
   },
   button: {
-    backgroundColor: '#00ff85',
+    backgroundColor: colors.accent,
     paddingVertical: 16,
     borderRadius: 12,
     marginTop: 12,
-    shadowColor: '#00ff85',
+    shadowColor: colors.accent,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -119,10 +117,9 @@ export const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.6,
-    backgroundColor: 'rgba(0, 255, 133, 0.5)',
   },
   buttonText: {
-    color: '#0f0f23',
+    color: colors.textOnAccent,
     textAlign: 'center',
     fontSize: 16,
     fontWeight: '700',
@@ -141,28 +138,48 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 20,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+    borderTopColor: colors.border,
   },
   footerText: {
     fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.6)',
+    color: colors.textMuted,
   },
   linkText: {
-    color: '#00ff85',
+    color: colors.accent,
     fontWeight: '700',
   },
-  demoContainer: {
+  bottomSection: {
     marginTop: 32,
     alignItems: 'center',
-    backgroundColor: 'rgba(55, 0, 60, 0.3)',
+  },
+  themeToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: 16,
+  },
+  themeToggleText: {
+    marginLeft: 8,
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  demoContainer: {
+    alignItems: 'center',
+    backgroundColor: colors.primary + '30',
     padding: 16,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(55, 0, 60, 0.5)',
+    borderColor: colors.primary + '50',
   },
   demoTitle: {
     fontSize: 12,
-    color: '#00ff85',
+    color: colors.accent,
     fontWeight: '600',
     marginBottom: 8,
     textTransform: 'uppercase',
@@ -170,8 +187,8 @@ export const styles = StyleSheet.create({
   },
   demoText: {
     fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.7)',
+    color: colors.textSecondary,
     marginBottom: 4,
-    fontFamily: 'monospace',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
 });
