@@ -13,24 +13,43 @@ export default function ProfileScreen({ route, navigation }) {
   const styles = createStyles(colors);
   
   const [user, setUser] = useState(null);
+  const [stats, setStats] = useState({ totalPools: 0, totalPicks: 0, winRate: 0 });
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [deadlineReminders, setDeadlineReminders] = useState(true);
   const [resultNotifications, setResultNotifications] = useState(true);
 
   useEffect(() => {
-    loadUser();
+    loadUserAndStats();
   }, []);
 
-  const loadUser = async () => {
+  const loadUserAndStats = async () => {
     try {
-      const userData = await apiService.getUser(userId);
+      const [userData, userPools, userPicks] = await Promise.all([
+        apiService.getUser(userId),
+        apiService.getUserPools(userId),
+        apiService.getUserPicks(userId),
+      ]);
       setUser(userData);
+      
+      // Calculate stats from real data
+      const totalPools = userPools.length;
+      const totalPicks = userPicks.length;
+      const wins = userPicks.filter(p => p.result === 'WIN' || p.result === 'win').length;
+      const completedPicks = userPicks.filter(p => p.result).length;
+      const winRate = completedPicks > 0 ? Math.round((wins / completedPicks) * 100) : 0;
+      
+      setStats({ totalPools, totalPicks, winRate });
     } catch (error) {
       console.error('Error loading user:', error);
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await apiService.logout();
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
     navigation.reset({
       index: 0,
       routes: [{ name: 'Login' }],
@@ -275,17 +294,17 @@ Thanks!`,
           <Text style={styles.statsTitle}>Season Stats</Text>
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>{user?.totalPools || 2}</Text>
+              <Text style={styles.statValue}>{stats.totalPools}</Text>
               <Text style={styles.statLabel}>Pools</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>{user?.totalPicks || 15}</Text>
+              <Text style={styles.statValue}>{stats.totalPicks}</Text>
               <Text style={styles.statLabel}>Picks</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>{user?.winRate || '73'}%</Text>
+              <Text style={styles.statValue}>{stats.winRate}%</Text>
               <Text style={styles.statLabel}>Win Rate</Text>
             </View>
           </View>

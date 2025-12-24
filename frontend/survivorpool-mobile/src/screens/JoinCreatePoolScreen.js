@@ -1,5 +1,5 @@
-import { View, Text, TextInput, TouchableOpacity, ScrollView, StatusBar, KeyboardAvoidingView, Platform, Modal, FlatList } from 'react-native';
-import { useState, useMemo } from 'react';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, StatusBar, KeyboardAvoidingView, Platform, Modal, FlatList, ActivityIndicator } from 'react-native';
+import { useState, useMemo, useEffect } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { useTheme } from '../theme/colors';
@@ -22,40 +22,57 @@ export default function JoinCreatePoolScreen({ route, navigation }) {
   const [totalLives, setTotalLives] = useState('3');
   const [maxPicksPerTeam, setMaxPicksPerTeam] = useState('2');
   const [createdCode, setCreatedCode] = useState(null);
+  const [createdPool, setCreatedPool] = useState(null);
   const [leagueModalVisible, setLeagueModalVisible] = useState(false);
   const [leagueSearch, setLeagueSearch] = useState('');
+  const [leagues, setLeagues] = useState([]);
+  const [leaguesLoading, setLeaguesLoading] = useState(true);
 
-  const LEAGUES = [
-    { id: 1, name: 'Premier League', country: 'England', icon: '🏴󠁧󠁢󠁥󠁮󠁧󠁿' },
-    { id: 2, name: 'La Liga', country: 'Spain', icon: '🇪🇸' },
-    { id: 3, name: 'Bundesliga', country: 'Germany', icon: '🇩🇪' },
-    { id: 4, name: 'Serie A', country: 'Italy', icon: '🇮🇹' },
-    { id: 5, name: 'Ligue 1', country: 'France', icon: '🇫🇷' },
-    { id: 6, name: 'Eredivisie', country: 'Netherlands', icon: '🇳🇱' },
-    { id: 7, name: 'Primeira Liga', country: 'Portugal', icon: '🇵🇹' },
-    { id: 8, name: 'Scottish Premiership', country: 'Scotland', icon: '🏴󠁧󠁢󠁳󠁣󠁴󠁿' },
-    { id: 9, name: 'Belgian Pro League', country: 'Belgium', icon: '🇧🇪' },
-    { id: 10, name: 'Super Lig', country: 'Turkey', icon: '🇹🇷' },
-  ];
+  // Country flag mapping for leagues
+  const countryFlags = {
+    'England': '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
+    'Spain': '🇪🇸',
+    'Germany': '🇩🇪',
+    'Italy': '🇮🇹',
+    'France': '🇫🇷',
+    'Netherlands': '🇳🇱',
+    'Portugal': '🇵🇹',
+    'Scotland': '🏴󠁧󠁢󠁳󠁣󠁴󠁿',
+    'Belgium': '🇧🇪',
+    'Turkey': '🇹🇷',
+  };
+
+  // Fetch leagues from API on mount
+  useEffect(() => {
+    const fetchLeagues = async () => {
+      try {
+        const data = await apiService.getCompetitions();
+        // Transform to include icon based on country
+        const leaguesWithIcons = data.map(league => ({
+          ...league,
+          icon: countryFlags[league.country] || '⚽',
+        }));
+        setLeagues(leaguesWithIcons);
+      } catch (error) {
+        console.error('Error fetching leagues:', error);
+        // Fallback to empty array if API fails
+        setLeagues([]);
+      } finally {
+        setLeaguesLoading(false);
+      }
+    };
+    fetchLeagues();
+  }, []);
 
   const filteredLeagues = useMemo(() => {
-    if (!leagueSearch.trim()) return LEAGUES;
+    if (!leagueSearch.trim()) return leagues;
     const search = leagueSearch.toLowerCase();
-    return LEAGUES.filter(
+    return leagues.filter(
       league => 
         league.name.toLowerCase().includes(search) || 
-        league.country.toLowerCase().includes(search)
+        (league.country && league.country.toLowerCase().includes(search))
     );
-  }, [leagueSearch]);
-
-  const generateSessionCode = () => {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    let code = '';
-    for (let i = 0; i < 6; i++) {
-      code += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return code;
-  };
+  }, [leagueSearch, leagues]);
 
   const handleJoinPool = async () => {
     if (!sessionCode.trim()) {
@@ -65,11 +82,16 @@ export default function JoinCreatePoolScreen({ route, navigation }) {
 
     setIsLoading(true);
     try {
-      // In real app, would look up pool by session code first
-      await apiService.joinPool(sessionCode, userId);
-      alert('Successfully joined pool!');
+      // Join pool using session code - returns pool_user_stats with pool_id
+      const result = await apiService.joinPoolByCode(sessionCode, userId);
       setSessionCode('');
-      navigation.navigate('MyPools', { userId });
+      
+      // Navigate directly to the pool details
+      navigation.navigate('PoolDetail', { 
+        poolId: result.pool_id, 
+        userId, 
+        poolName: 'Pool' // Will be loaded in PoolDetail
+      });
     } catch (error) {
       alert(error.message || 'Failed to join pool. Check the code and try again.');
     } finally {
@@ -89,18 +111,18 @@ export default function JoinCreatePoolScreen({ route, navigation }) {
 
     setIsLoading(true);
     try {
-      const code = generateSessionCode();
       const newPool = await apiService.createPool({
         name: poolName,
         description: poolDescription || `${poolName} survivor pool`,
         competition_id: selectedLeague.id,
         total_lives: parseInt(totalLives) || 3,
         max_picks_per_team: parseInt(maxPicksPerTeam) || 2,
-        session_code: code,
         creator_id: userId,
       });
       
-      setCreatedCode(code);
+      // Store both the session_code and pool info for navigation
+      setCreatedCode(newPool.session_code);
+      setCreatedPool(newPool); // Store pool for navigation
       // Reset form
       setPoolName('');
       setPoolDescription('');
@@ -371,16 +393,25 @@ export default function JoinCreatePoolScreen({ route, navigation }) {
               <TouchableOpacity
                 style={styles.primaryButton}
                 onPress={() => {
+                  // Navigate directly to the created pool
+                  navigation.navigate('PoolDetail', { 
+                    poolId: createdPool?.id, 
+                    userId, 
+                    poolName: createdPool?.name || 'Pool'
+                  });
                   setCreatedCode(null);
-                  navigation.navigate('MyPools', { userId });
+                  setCreatedPool(null);
                 }}
               >
-                <Text style={styles.primaryButtonText}>Go to My Pools</Text>
+                <Text style={styles.primaryButtonText}>Go to Pool</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={styles.secondaryButton}
-                onPress={() => setCreatedCode(null)}
+                onPress={() => {
+                  setCreatedCode(null);
+                  setCreatedPool(null);
+                }}
               >
                 <Text style={styles.secondaryButtonText}>Create Another Pool</Text>
               </TouchableOpacity>
@@ -423,37 +454,44 @@ export default function JoinCreatePoolScreen({ route, navigation }) {
               )}
             </View>
 
-            <FlatList
-              data={filteredLeagues}
-              keyExtractor={(item) => item.id.toString()}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={[
-                    styles.leagueListItem,
-                    selectedLeague?.id === item.id && styles.leagueListItemSelected,
-                  ]}
-                  onPress={() => {
-                    setSelectedLeague(item);
-                    setLeagueModalVisible(false);
-                    setLeagueSearch('');
-                  }}
-                >
-                  <Text style={styles.leagueListIcon}>{item.icon}</Text>
-                  <View style={styles.leagueListText}>
-                    <Text style={styles.leagueListName}>{item.name}</Text>
-                    <Text style={styles.leagueListCountry}>{item.country}</Text>
+            {leaguesLoading ? (
+              <View style={{ padding: 40, alignItems: 'center' }}>
+                <ActivityIndicator size="large" color={colors.accent} />
+                <Text style={{ color: colors.textMuted, marginTop: 12 }}>Loading leagues...</Text>
+              </View>
+            ) : (
+              <FlatList
+                data={filteredLeagues}
+                keyExtractor={(item) => item.id.toString()}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={[
+                      styles.leagueListItem,
+                      selectedLeague?.id === item.id && styles.leagueListItemSelected,
+                    ]}
+                    onPress={() => {
+                      setSelectedLeague(item);
+                      setLeagueModalVisible(false);
+                      setLeagueSearch('');
+                    }}
+                  >
+                    <Text style={styles.leagueListIcon}>{item.icon}</Text>
+                    <View style={styles.leagueListText}>
+                      <Text style={styles.leagueListName}>{item.name}</Text>
+                      <Text style={styles.leagueListCountry}>{item.country}</Text>
+                    </View>
+                    {selectedLeague?.id === item.id && (
+                      <Ionicons name="checkmark-circle" size={24} color={colors.accent} />
+                    )}
+                  </TouchableOpacity>
+                )}
+                ListEmptyComponent={
+                  <View style={styles.emptySearch}>
+                    <Text style={styles.emptySearchText}>No leagues found</Text>
                   </View>
-                  {selectedLeague?.id === item.id && (
-                    <Ionicons name="checkmark-circle" size={24} color={colors.accent} />
-                  )}
-                </TouchableOpacity>
-              )}
-              ListEmptyComponent={
-                <View style={styles.emptySearch}>
-                  <Text style={styles.emptySearchText}>No leagues found</Text>
-                </View>
-              }
-            />
+                }
+              />
+            )}
           </View>
         </View>
       </Modal>

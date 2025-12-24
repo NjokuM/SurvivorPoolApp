@@ -11,6 +11,11 @@ from app.services.football_api import (
     store_fixtures_from_api, update_fixtures_by_league_id,
     update_fixtures_from_api
 )
+from app.services.scheduler import (
+    smart_sync_and_process,
+    weekly_schedule_refresh,
+    force_process_competition_gameweek
+)
 from sqlalchemy.future import select
 from app.models.competiton_data import Competition
 
@@ -100,3 +105,56 @@ async def update_all_fixtures(db: AsyncSession = Depends(get_db)):
 @router.put("/fixtures/update/{league_id}")
 async def update_fixtures_for_league(league_id: int, season: int, db: AsyncSession = Depends(get_db)):
     return await update_fixtures_by_league_id(db, league_id, season)
+
+
+# ============================================================
+# SMART SCHEDULER ENDPOINTS (for cron jobs)
+# ============================================================
+
+@router.post("/scheduler/smart-sync")
+async def run_smart_sync(db: AsyncSession = Depends(get_db)):
+    """
+    MAIN CRON JOB - Run every 15-30 mins.
+    
+    Only makes API calls when games are actually finishing.
+    - Checks which leagues have active pools
+    - Checks if any games kicked off 90-150 mins ago (likely finishing)
+    - If yes: syncs those fixtures and processes picks
+    - If no: does nothing (no API cost)
+    """
+    result = await smart_sync_and_process(db)
+    return result
+
+
+@router.post("/scheduler/weekly-refresh")
+async def run_weekly_refresh(db: AsyncSession = Depends(get_db)):
+    """
+    WEEKLY CRON JOB - Run once per week (e.g., Sunday 11pm).
+    
+    Refreshes fixture schedules to catch:
+    - Rescheduled games (weather, TV, etc.)
+    - New fixtures added
+    - Kickoff time changes
+    
+    Only syncs leagues that have active pools.
+    """
+    result = await weekly_schedule_refresh(db)
+    return result
+
+
+@router.post("/scheduler/process-picks/{competition_id}/{gameweek}")
+async def manually_process_picks(
+    competition_id: int,
+    gameweek: int,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    MANUAL TRIGGER - Process picks for a specific competition/gameweek.
+    
+    Useful for:
+    - Testing
+    - Catching up on missed processing
+    - Re-processing after a bug fix
+    """
+    result = await force_process_competition_gameweek(db, competition_id, gameweek)
+    return result

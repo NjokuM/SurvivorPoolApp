@@ -21,11 +21,15 @@ export default function PoolDetailScreen({ route, navigation }) {
   const [teams, setTeams] = useState([]);
   const [fixtures, setFixtures] = useState([]);
   const [userPicks, setUserPicks] = useState([]);
-  const [currentGameweek, setCurrentGameweek] = useState(18);
+  const [allPoolPicks, setAllPoolPicks] = useState([]);
+  const [currentGameweek, setCurrentGameweek] = useState(1);
+  const [earliestKickoff, setEarliestKickoff] = useState(null);
+  const [hasCurrentPick, setHasCurrentPick] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [historyWeek, setHistoryWeek] = useState(null);
   const [historyFilter, setHistoryFilter] = useState('week'); // 'week' or 'user'
   const [selectedHistoryUser, setSelectedHistoryUser] = useState(null);
+  const [pickGameweek, setPickGameweek] = useState(null); // Gameweek for making picks
 
   const loadData = useCallback(async () => {
     try {
@@ -36,8 +40,12 @@ export default function PoolDetailScreen({ route, navigation }) {
       setTeams(data.teams);
       setFixtures(data.fixtures);
       setUserPicks(data.userPicks);
+      setAllPoolPicks(data.allPoolPicks || []);
       setCurrentGameweek(data.currentGameweek);
-      setHistoryWeek(data.currentGameweek - 1);
+      setEarliestKickoff(data.earliestKickoff);
+      setHasCurrentPick(data.hasCurrentPick || false);
+      setHistoryWeek(Math.max(1, data.currentGameweek - 1));
+      if (!pickGameweek) setPickGameweek(data.currentGameweek); // Default to current gameweek
     } catch (error) {
       console.error('Error loading pool data:', error);
     } finally {
@@ -62,17 +70,24 @@ export default function PoolDetailScreen({ route, navigation }) {
     }
 
     try {
+      // Find fixture for the selected team in the selected gameweek
       const fixture = fixtures.find(f => 
-        f.home_team_id === selectedTeam || f.away_team_id === selectedTeam
+        (f.home_team_id === selectedTeam || f.away_team_id === selectedTeam) &&
+        f.gameweek === pickGameweek
       );
+      
+      if (!fixture) {
+        alert(`No fixture found for this team in Gameweek ${pickGameweek}`);
+        return;
+      }
       
       await apiService.createPick({
         pool_id: poolId,
         user_id: userId,
         team_id: selectedTeam,
-        fixture_id: fixture?.id || 1,
+        fixture_id: fixture.id,
       });
-      alert('Pick submitted successfully!');
+      alert(`Pick submitted for Gameweek ${pickGameweek}!`);
       setSelectedTeam(null);
       loadData();
     } catch (error) {
@@ -85,23 +100,33 @@ export default function PoolDetailScreen({ route, navigation }) {
   };
 
   const getDeadlineCountdown = () => {
-    const now = new Date();
-    const deadline = new Date();
-    deadline.setDate(deadline.getDate() + 1);
-    deadline.setHours(15, 0, 0, 0);
+    if (!earliestKickoff) {
+      return 'No deadline';
+    }
     
+    const now = new Date();
+    const deadline = new Date(earliestKickoff);
     const diff = deadline - now;
+    
+    if (diff <= 0) {
+      return 'Deadline passed';
+    }
+    
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
     
-    if (hours > 24) {
-      return `${Math.floor(hours / 24)}d ${hours % 24}h`;
+    if (hours >= 24) {
+      const days = Math.floor(hours / 24);
+      return `${days}d ${hours % 24}h`;
     }
     return `${hours}h ${minutes}m`;
   };
 
   const livesLeft = userStats?.lives_left || pool?.total_lives || 3;
   const usedTeamIds = getUsedTeamIds();
+  
+  // Calculate user's rank from leaderboard
+  const userRank = leaderboard.findIndex(e => e.user_id === userId) + 1 || '-';
 
   if (loading) {
     return (
@@ -212,7 +237,7 @@ export default function PoolDetailScreen({ route, navigation }) {
                 <Text style={styles.statsLabel}>Lives Remaining</Text>
               </View>
               <View style={styles.statsCard}>
-                <Text style={styles.statsValue}>#{userStats?.rank || '-'}</Text>
+                <Text style={styles.statsValue}>#{userRank}</Text>
                 <Text style={styles.statsLabel}>Your Rank</Text>
               </View>
               <View style={styles.statsCard}>
@@ -250,18 +275,26 @@ export default function PoolDetailScreen({ route, navigation }) {
                   <Text style={styles.seeAllText}>See All</Text>
                 </TouchableOpacity>
               </View>
-              {leaderboard.slice(0, 3).map((entry, index) => (
-                <View key={entry.user_id} style={styles.leaderboardRow}>
-                  <View style={[styles.rankBadge, index === 0 && styles.rankBadgeGold]}>
-                    <Text style={styles.rankText}>{index + 1}</Text>
+              {leaderboard.slice(0, 3).map((entry, index) => {
+                const userPickCount = allPoolPicks.filter(p => p.user_id === entry.user_id).length;
+                return (
+                  <View key={entry.user_id} style={styles.leaderboardRow}>
+                    <View style={[styles.rankBadge, index === 0 && styles.rankBadgeGold]}>
+                      <Text style={styles.rankText}>{index + 1}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.leaderboardName}>{entry.username}</Text>
+                      <Text style={{ fontSize: 11, color: colors.textMuted }}>
+                        {userPickCount} picks • {entry.total_points || 0} pts
+                      </Text>
+                    </View>
+                    <View style={styles.leaderboardLives}>
+                      <Ionicons name="heart" size={14} color={colors.heart} />
+                      <Text style={styles.leaderboardLivesText}>{entry.lives_left}</Text>
+                    </View>
                   </View>
-                  <Text style={styles.leaderboardName}>{entry.username}</Text>
-                  <View style={styles.leaderboardLives}>
-                    <Ionicons name="heart" size={14} color={colors.heart} />
-                    <Text style={styles.leaderboardLivesText}>{entry.lives_remaining}</Text>
-                  </View>
-                </View>
-              ))}
+                );
+              })}
             </View>
           </>
         )}
@@ -276,6 +309,34 @@ export default function PoolDetailScreen({ route, navigation }) {
               </Text>
             </View>
 
+            {/* Gameweek Selector */}
+            <View style={styles.weekSelectorContainer}>
+              <View style={styles.weekSelector}>
+                <TouchableOpacity 
+                  style={styles.weekButton}
+                  onPress={() => setPickGameweek(Math.max(currentGameweek, pickGameweek - 1))}
+                  disabled={pickGameweek <= currentGameweek}
+                >
+                  <Ionicons name="chevron-back" size={20} color={pickGameweek <= currentGameweek ? colors.textMuted : colors.textPrimary} />
+                </TouchableOpacity>
+                <View style={{ alignItems: 'center' }}>
+                  <Text style={styles.weekText}>Gameweek {pickGameweek}</Text>
+                  {pickGameweek === currentGameweek && (
+                    <Text style={{ color: colors.success, fontSize: 11 }}>Current</Text>
+                  )}
+                  {pickGameweek > currentGameweek && (
+                    <Text style={{ color: colors.info, fontSize: 11 }}>Future</Text>
+                  )}
+                </View>
+                <TouchableOpacity 
+                  style={styles.weekButton}
+                  onPress={() => setPickGameweek(Math.min(38, pickGameweek + 1))}
+                >
+                  <Ionicons name="chevron-forward" size={20} color={colors.textPrimary} />
+                </TouchableOpacity>
+              </View>
+            </View>
+
             {/* Teams Grid */}
             <View style={styles.teamsGrid}>
               {teams.map((team) => {
@@ -284,6 +345,22 @@ export default function PoolDetailScreen({ route, navigation }) {
                 const usedCount = usedTeamIds.filter(id => id === team.id).length;
                 const isMaxed = usedCount >= (pool?.max_picks_per_team || 2);
                 
+                // Find fixture for this team in the selected gameweek
+                const gameweekFixture = fixtures.find(f => 
+                  (f.home_team_id === team.id || f.away_team_id === team.id) &&
+                  f.gameweek === pickGameweek
+                );
+                
+                // Build match display string for selected gameweek
+                let matchDisplay = 'No match this week';
+                if (gameweekFixture) {
+                  const homeTeam = teams.find(t => t.id === gameweekFixture.home_team_id);
+                  const awayTeam = teams.find(t => t.id === gameweekFixture.away_team_id);
+                  const homeShort = homeTeam?.short_name || homeTeam?.name?.substring(0, 3) || 'TBD';
+                  const awayShort = awayTeam?.short_name || awayTeam?.name?.substring(0, 3) || 'TBD';
+                  matchDisplay = `${homeShort} vs ${awayShort}`;
+                }
+                
                 return (
                   <TouchableOpacity
                     key={team.id}
@@ -291,9 +368,10 @@ export default function PoolDetailScreen({ route, navigation }) {
                       styles.teamCard,
                       isSelected && styles.teamCardSelected,
                       isMaxed && styles.teamCardDisabled,
+                      !gameweekFixture && styles.teamCardDisabled,
                     ]}
-                    onPress={() => !isMaxed && setSelectedTeam(isSelected ? null : team.id)}
-                    disabled={isMaxed}
+                    onPress={() => !isMaxed && gameweekFixture && setSelectedTeam(isSelected ? null : team.id)}
+                    disabled={isMaxed || !gameweekFixture}
                     activeOpacity={0.7}
                   >
                     {isMaxed && (
@@ -307,7 +385,7 @@ export default function PoolDetailScreen({ route, navigation }) {
                       resizeMode="contain"
                     />
                     <Text style={styles.teamName} numberOfLines={1}>{team.name}</Text>
-                    <Text style={styles.teamFixture} numberOfLines={1}>{team.nextMatch}</Text>
+                    <Text style={styles.teamFixture} numberOfLines={1}>{matchDisplay}</Text>
                     {usedCount > 0 && !isMaxed && (
                       <View style={styles.usedCountBadge}>
                         <Text style={styles.usedCountText}>{usedCount}</Text>
@@ -355,6 +433,7 @@ export default function PoolDetailScreen({ route, navigation }) {
 
             {leaderboard.map((entry, index) => {
               const isCurrentUser = entry.user_id === userId;
+              const pickCount = allPoolPicks.filter(p => p.user_id === entry.user_id).length;
               return (
                 <View 
                   key={entry.user_id} 
@@ -373,7 +452,7 @@ export default function PoolDetailScreen({ route, navigation }) {
                       {entry.username} {isCurrentUser && '(You)'}
                     </Text>
                   </View>
-                  <Text style={styles.standingsStatText}>-</Text>
+                  <Text style={styles.standingsStatText}>{pickCount}</Text>
                   <Text style={[styles.standingsStatText, styles.standingsPoints]}>{entry.total_points || 0}</Text>
                   <View style={styles.standingsLives}>
                     {[...Array(entry.lives_left || 0)].map((_, i) => (
@@ -441,7 +520,7 @@ export default function PoolDetailScreen({ route, navigation }) {
 
                 {/* Week's picks */}
                 {leaderboard.map((entry) => {
-                  const pick = userPicks.find(p => p.user_id === entry.user_id && p.gameweek === historyWeek);
+                  const pick = allPoolPicks.find(p => p.user_id === entry.user_id && p.gameweek === historyWeek);
                   const team = pick ? teams.find(t => t.id === pick.team_id) : null;
                   
                   return (
@@ -532,7 +611,7 @@ export default function PoolDetailScreen({ route, navigation }) {
                 {/* All picks for this user */}
                 {[...Array(currentGameweek - 1)].map((_, i) => {
                   const gw = currentGameweek - 1 - i;
-                  const pick = userPicks.find(p => p.user_id === selectedHistoryUser.user_id && p.gameweek === gw);
+                  const pick = allPoolPicks.find(p => p.user_id === selectedHistoryUser.user_id && p.gameweek === gw);
                   const team = pick ? teams.find(t => t.id === pick.team_id) : null;
                   
                   return (

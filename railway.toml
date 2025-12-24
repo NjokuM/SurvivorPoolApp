@@ -6,3 +6,25 @@ dockerfilePath = "backend/Dockerfile"
 [deploy]
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10
+
+# ============================================================
+# CRON JOB CONFIGURATION
+# ============================================================
+# Railway doesn't have native cron support in railway.toml.
+# Options for scheduling:
+#
+# 1. Use Railway's Cron Service (recommended):
+#    - Create a new service in Railway dashboard
+#    - Set it as a "Cron" type service
+#    - Configure: POST https://your-app.railway.app/external/football/scheduler/smart-sync
+#    - Schedule: */15 * * * * (every 15 mins)
+#
+# 2. Use external cron service (free options):
+#    - cron-job.org (free, reliable)
+#    - EasyCron
+#    - GitHub Actions scheduled workflow
+#
+# Endpoints to call:
+# - Every 15 mins: POST /external/football/scheduler/smart-sync
+# - Weekly (Sun 11pm): POST /external/football/scheduler/weekly-refresh
+# ============================================================

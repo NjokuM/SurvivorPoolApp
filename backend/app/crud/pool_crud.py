@@ -11,19 +11,20 @@ from app.schemas.pool_schema import PoolCreate
 # --------------------------
 # HELPER: Generate session code
 # --------------------------
-async def generate_session_code(prefix: str) -> str:
+async def generate_session_code() -> str:
     random_code = secrets.token_hex(3)  # 6-char hex
-    return f"{prefix}{random_code}".upper() 
+    return random_code.upper() 
 
 # --------------------------
 # CREATE POOL
 # --------------------------
 async def create_pool(db: AsyncSession, pool_data: PoolCreate):
+    from app.services.scheduler import sync_competition_if_needed
 
-    # 2. Generate session code
-    session_code = await generate_session_code("TST")
+    # 1. Generate session code
+    session_code = await generate_session_code()
 
-    # 3. Create pool object
+    # 2. Create pool object
     pool_dict = pool_data.model_dump()
     pool_dict["session_code"] = session_code
 
@@ -32,6 +33,16 @@ async def create_pool(db: AsyncSession, pool_data: PoolCreate):
     db.add(new_pool)
     await db.commit()
     await db.refresh(new_pool)
+    
+    # 3. If this is the first pool for this competition, sync fixtures
+    # This handles the edge case where a user creates a pool for a league
+    # that wasn't previously active (no fixtures synced recently)
+    if new_pool.competition_id:
+        try:
+            await sync_competition_if_needed(db, new_pool.competition_id)
+        except Exception as e:
+            # Don't fail pool creation if fixture sync fails
+            print(f"Warning: Could not sync fixtures for competition {new_pool.competition_id}: {e}")
     
     return new_pool
 

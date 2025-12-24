@@ -42,13 +42,18 @@ export default function MyPoolsScreen({ route, navigation }) {
   }, [loadData]);
 
   const getDeadlineInfo = (pool) => {
-    // Mock deadline - in real app, get from fixtures
-    const now = new Date();
-    const deadline = new Date();
-    deadline.setDate(deadline.getDate() + 2); // 2 days from now
-    deadline.setHours(15, 0, 0, 0); // 3 PM kickoff
+    if (!pool.earliestKickoff) {
+      return { text: 'No deadline', urgent: false };
+    }
     
+    const now = new Date();
+    const deadline = new Date(pool.earliestKickoff);
     const diff = deadline - now;
+    
+    if (diff <= 0) {
+      return { text: 'Deadline passed', urgent: true };
+    }
+    
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const days = Math.floor(hours / 24);
     
@@ -57,15 +62,18 @@ export default function MyPoolsScreen({ route, navigation }) {
     } else if (hours > 0) {
       return { text: `${hours}h left`, urgent: hours < 6 };
     } else {
-      return { text: 'Deadline passed', urgent: true };
+      const minutes = Math.floor(diff / (1000 * 60));
+      return { text: `${minutes}m left`, urgent: true };
     }
   };
 
   const getPickStatus = (pool) => {
-    // TODO: In real app, check if user has made pick for current gameweek
-    // For now, return pending to show the UI
-    return 'pending';
+    // Check if user has made pick for current gameweek using data from API
+    return pool.hasCurrentPick ? 'picked' : 'pending';
   };
+  
+  // Calculate picks needed count
+  const picksNeededCount = pools.filter(p => !p.hasCurrentPick).length;
 
   if (loading) {
     return (
@@ -108,9 +116,7 @@ export default function MyPoolsScreen({ route, navigation }) {
             <Text style={styles.statLabel}>Active Pools</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statValue}>
-              {pools.filter(p => getPickStatus(p) === 'pending').length}
-            </Text>
+            <Text style={styles.statValue}>{picksNeededCount}</Text>
             <Text style={styles.statLabel}>Picks Needed</Text>
           </View>
         </View>
