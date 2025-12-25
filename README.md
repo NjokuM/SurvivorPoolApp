@@ -81,28 +81,29 @@ backend/
 └── requirements.txt
 ```
 
-### Frontend (React Native)
+### Frontend (React Native + Expo)
 ```
 frontend/survivorpool-mobile/
 ├── src/
 │   ├── screens/            # Main app screens
 │   │   ├── LoginScreen.js
 │   │   ├── SignupScreen.js
-│   │   └── HomeScreen.js
+│   │   ├── MyPoolsScreen.js
+│   │   ├── PoolDetailScreen.js
+│   │   ├── JoinCreatePoolScreen.js
+│   │   ├── ProfileScreen.js
+│   │   ├── EditProfileScreen.js
+│   │   ├── ChangePasswordScreen.js
+│   │   └── styles/         # Separated stylesheets per screen
 │   ├── components/         # Reusable UI components
-│   │   ├── Header.js
-│   │   ├── Leaderboard.js
-│   │   ├── TeamSelector.js
-│   │   ├── PlayerSelections.js
-│   │   ├── LeagueManager.js
-│   │   └── UserLeagues.js
-│   ├── nav/               # Navigation components
-│   │   └── HomeNav.js
+│   │   └── EmptyState.js
 │   ├── api/               # API integration
-│   │   └── api.js
-│   │       ├── endpoints/ # API service functions for endpoints
-│   │       │   └── pools.js
-│   └── styles/            # Separated stylesheets
+│   │   ├── apiService.js  # Central API layer with mock toggle
+│   │   └── mockData.js    # Mock data for development
+│   ├── context/           # React context
+│   │   └── AppContext.js
+│   └── theme/             # Theming
+│       └── colors.js      # Dark theme with Premier League colors
 └── App.js
 ```
 
@@ -139,7 +140,7 @@ cd SurvivorPoolApp/backend
 
 2. **Create virtual environment**
 ```bash
-python -m venv venv
+python3 -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 ```
 
@@ -363,12 +364,4 @@ This project is licensed under the MIT License - see LICENSE file for details.
 
 ---
 
-<<<<<<< Updated upstream
-⭐ Star this repo if you found it helpful!
-=======
-<<<<<<< HEAD
-⭐ Im looking for a junior software engineering role in London, UK. Please feel free to reach out to me at michaelnjok120@gmail.com ⭐
-=======
-⭐ Star this repo if you found it helpful!
->>>>>>> 293fdeafea98bf243e33e6d04ccf014c87f4c736
->>>>>>> Stashed changes
+⭐ Looking for a junior software engineering role in London, UK. Please reach out at michaelnjok120@gmail.com ⭐
