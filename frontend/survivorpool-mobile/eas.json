@@ -1,28 +1,41 @@
 {
   "cli": {
-    "version": ">= 5.0.0"
+    "version": ">= 5.0.0",
+    "appVersionSource": "local"
   },
   "build": {
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "ios": {
+        "simulator": false
+      },
       "env": {
         "APP_ENV": "local"
       }
     },
     "int": {
       "distribution": "internal",
+      "ios": {
+        "buildConfiguration": "Release"
+      },
       "env": {
         "APP_ENV": "int"
       }
     },
     "preview": {
       "distribution": "internal",
+      "ios": {
+        "buildConfiguration": "Release"
+      },
       "env": {
         "APP_ENV": "int"
       }
     },
     "production": {
+      "ios": {
+        "buildConfiguration": "Release"
+      },
       "env": {
         "APP_ENV": "prod"
       }
