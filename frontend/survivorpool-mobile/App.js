@@ -2,6 +2,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
+import Toast from 'react-native-toast-message';
 import { AppProvider } from './src/context/AppContext';
 import { ThemeProvider, useTheme } from './src/theme/colors';
 import LoginScreen from './src/screens/LoginScreen';
@@ -104,6 +105,7 @@ export default function App() {
     <ThemeProvider>
       <AppProvider>
         <AppNavigator />
+        <Toast />
       </AppProvider>
     </ThemeProvider>
   );

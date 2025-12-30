@@ -2,6 +2,7 @@ import { View, Text, TextInput, TouchableOpacity, ScrollView, StatusBar, Keyboar
 import { useState, useMemo, useEffect } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
+import Toast from 'react-native-toast-message';
 import { useTheme } from '../theme/colors';
 import apiService from '../api/apiService';
 import { createStyles } from './styles/JoinCreatePoolScreen.styles';
@@ -23,6 +24,7 @@ export default function JoinCreatePoolScreen({ route, navigation }) {
   const [maxPicksPerTeam, setMaxPicksPerTeam] = useState('2');
   const [createdCode, setCreatedCode] = useState(null);
   const [createdPool, setCreatedPool] = useState(null);
+  const [successModalVisible, setSuccessModalVisible] = useState(false);
   const [leagueModalVisible, setLeagueModalVisible] = useState(false);
   const [leagueSearch, setLeagueSearch] = useState('');
   const [leagues, setLeagues] = useState([]);
@@ -76,7 +78,11 @@ export default function JoinCreatePoolScreen({ route, navigation }) {
 
   const handleJoinPool = async () => {
     if (!sessionCode.trim()) {
-      alert('Please enter a session code');
+      Toast.show({
+        type: 'error',
+        text1: 'Missing Code',
+        text2: 'Please enter a session code',
+      });
       return;
     }
 
@@ -86,6 +92,12 @@ export default function JoinCreatePoolScreen({ route, navigation }) {
       const result = await apiService.joinPoolByCode(sessionCode, userId);
       setSessionCode('');
       
+      Toast.show({
+        type: 'success',
+        text1: 'Joined Pool!',
+        text2: 'Welcome to the pool',
+      });
+      
       // Navigate directly to the pool details
       navigation.navigate('PoolDetail', { 
         poolId: result.pool_id, 
@@ -93,7 +105,11 @@ export default function JoinCreatePoolScreen({ route, navigation }) {
         poolName: 'Pool' // Will be loaded in PoolDetail
       });
     } catch (error) {
-      alert(error.message || 'Failed to join pool. Check the code and try again.');
+      Toast.show({
+        type: 'error',
+        text1: 'Failed to Join',
+        text2: error.message || 'Check the code and try again',
+      });
     } finally {
       setIsLoading(false);
     }
@@ -101,11 +117,19 @@ export default function JoinCreatePoolScreen({ route, navigation }) {
 
   const handleCreatePool = async () => {
     if (!poolName.trim()) {
-      alert('Please enter a pool name');
+      Toast.show({
+        type: 'error',
+        text1: 'Missing Name',
+        text2: 'Please enter a pool name',
+      });
       return;
     }
     if (!selectedLeague) {
-      alert('Please select a league');
+      Toast.show({
+        type: 'error',
+        text1: 'Missing League',
+        text2: 'Please select a league',
+      });
       return;
     }
 
@@ -120,14 +144,27 @@ export default function JoinCreatePoolScreen({ route, navigation }) {
         creator_id: userId,
       });
       
+      // Debug: Log the full response to see what we're getting
+      console.log('Created pool response:', JSON.stringify(newPool, null, 2));
+      
       // Store both the session_code and pool info for navigation
-      setCreatedCode(newPool.session_code);
+      const sessionCode = newPool.session_code || newPool.sessionCode || newPool.code;
+      console.log('Session code extracted:', sessionCode);
+      
+      setCreatedCode(sessionCode);
       setCreatedPool(newPool); // Store pool for navigation
       // Reset form
       setPoolName('');
       setPoolDescription('');
+      
+      // Show success modal instead of toast
+      setSuccessModalVisible(true);
     } catch (error) {
-      alert(error.message || 'Failed to create pool');
+      Toast.show({
+        type: 'error',
+        text1: 'Failed to Create',
+        text2: error.message || 'Please try again',
+      });
     } finally {
       setIsLoading(false);
     }
@@ -135,7 +172,11 @@ export default function JoinCreatePoolScreen({ route, navigation }) {
 
   const copyToClipboard = async () => {
     await Clipboard.setStringAsync(createdCode);
-    alert('Code copied to clipboard!');
+    Toast.show({
+      type: 'success',
+      text1: 'Copied!',
+      text2: 'Code copied to clipboard',
+    });
   };
 
   return (
@@ -492,6 +533,139 @@ export default function JoinCreatePoolScreen({ route, navigation }) {
                 }
               />
             )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Pool Created Success Modal */}
+      <Modal
+        visible={successModalVisible}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setSuccessModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { alignItems: 'center', paddingVertical: 32 }]}>
+            {/* Success Icon */}
+            <View style={{
+              width: 80,
+              height: 80,
+              borderRadius: 40,
+              backgroundColor: colors.success + '20',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 20,
+            }}>
+              <Ionicons name="checkmark-circle" size={50} color={colors.success} />
+            </View>
+
+            <Text style={{
+              fontSize: 24,
+              fontWeight: '700',
+              color: colors.textPrimary,
+              marginBottom: 8,
+            }}>Pool Created!</Text>
+            
+            <Text style={{
+              fontSize: 14,
+              color: colors.textMuted,
+              textAlign: 'center',
+              marginBottom: 24,
+              paddingHorizontal: 20,
+            }}>
+              Share this code with friends to invite them to your pool
+            </Text>
+
+            {/* Session Code Display */}
+            <View style={{
+              backgroundColor: colors.background,
+              borderRadius: 16,
+              padding: 20,
+              width: '100%',
+              alignItems: 'center',
+              marginBottom: 24,
+              borderWidth: 2,
+              borderColor: colors.accent,
+              borderStyle: 'dashed',
+            }}>
+              <Text style={{
+                fontSize: 12,
+                color: colors.textMuted,
+                marginBottom: 8,
+                textTransform: 'uppercase',
+                letterSpacing: 1,
+              }}>Session Code</Text>
+              <Text style={{
+                fontSize: 36,
+                fontWeight: '800',
+                color: colors.accent,
+                letterSpacing: 4,
+              }}>{createdCode || '------'}</Text>
+            </View>
+
+            {/* Copy Button */}
+            <TouchableOpacity
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: colors.surface,
+                paddingVertical: 12,
+                paddingHorizontal: 24,
+                borderRadius: 12,
+                marginBottom: 20,
+              }}
+              onPress={async () => {
+                if (createdCode) {
+                  await Clipboard.setStringAsync(createdCode);
+                  Toast.show({
+                    type: 'success',
+                    text1: 'Copied!',
+                    text2: 'Code copied to clipboard',
+                  });
+                }
+              }}
+            >
+              <Ionicons name="copy-outline" size={20} color={colors.accent} />
+              <Text style={{
+                color: colors.accent,
+                fontWeight: '600',
+                marginLeft: 8,
+              }}>Copy Code</Text>
+            </TouchableOpacity>
+
+            {/* Go to Pool Button */}
+            <TouchableOpacity
+              style={[styles.primaryButton, { width: '100%', marginBottom: 12 }]}
+              onPress={() => {
+                setSuccessModalVisible(false);
+                navigation.navigate('PoolDetail', {
+                  poolId: createdPool?.id,
+                  userId,
+                  poolName: createdPool?.name || 'Pool',
+                });
+                setCreatedCode(null);
+                setCreatedPool(null);
+              }}
+            >
+              <Text style={styles.primaryButtonText}>Go to Pool</Text>
+            </TouchableOpacity>
+
+            {/* Create Another Button */}
+            <TouchableOpacity
+              style={{
+                paddingVertical: 12,
+              }}
+              onPress={() => {
+                setSuccessModalVisible(false);
+                setCreatedCode(null);
+                setCreatedPool(null);
+              }}
+            >
+              <Text style={{
+                color: colors.textMuted,
+                fontWeight: '500',
+              }}>Create Another Pool</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>

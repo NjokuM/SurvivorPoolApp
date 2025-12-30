@@ -1,6 +1,8 @@
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, StatusBar, RefreshControl, Image } from 'react-native';
 import { useEffect, useState, useCallback } from 'react';
 import { Ionicons } from '@expo/vector-icons';
+import Toast from 'react-native-toast-message';
+import * as Clipboard from 'expo-clipboard';
 import { useTheme } from '../theme/colors';
 import apiService from '../api/apiService';
 import { createStyles } from './styles/PoolDetailScreen.styles';
@@ -65,7 +67,11 @@ export default function PoolDetailScreen({ route, navigation }) {
 
   const handleMakePick = async () => {
     if (!selectedTeam) {
-      alert('Please select a team');
+      Toast.show({
+        type: 'error',
+        text1: 'No Team Selected',
+        text2: 'Please select a team to pick',
+      });
       return;
     }
 
@@ -77,7 +83,11 @@ export default function PoolDetailScreen({ route, navigation }) {
       );
       
       if (!fixture) {
-        alert(`No fixture found for this team in Gameweek ${pickGameweek}`);
+        Toast.show({
+          type: 'error',
+          text1: 'No Fixture',
+          text2: `No match found for this team in GW${pickGameweek}`,
+        });
         return;
       }
       
@@ -87,11 +97,20 @@ export default function PoolDetailScreen({ route, navigation }) {
         team_id: selectedTeam,
         fixture_id: fixture.id,
       });
-      alert(`Pick submitted for Gameweek ${pickGameweek}!`);
+      
+      Toast.show({
+        type: 'success',
+        text1: 'Pick Submitted!',
+        text2: `Your pick for Gameweek ${pickGameweek} is locked in`,
+      });
       setSelectedTeam(null);
       loadData();
     } catch (error) {
-      alert(error.message || 'Failed to submit pick');
+      Toast.show({
+        type: 'error',
+        text1: 'Pick Failed',
+        text2: error.message || 'Failed to submit pick',
+      });
     }
   };
 
@@ -667,8 +686,20 @@ export default function PoolDetailScreen({ route, navigation }) {
               <Text style={styles.infoTitle}>Session Code</Text>
               <Text style={styles.infoSubtitle}>Share this code to invite friends</Text>
               <View style={styles.sessionCodeContainer}>
-                <Text style={styles.sessionCode}>{pool?.session_code || 'ABC123'}</Text>
-                <TouchableOpacity style={styles.copyButton}>
+                <Text style={styles.sessionCode}>{pool?.session_code || '------'}</Text>
+                <TouchableOpacity 
+                  style={styles.copyButton}
+                  onPress={async () => {
+                    if (pool?.session_code) {
+                      await Clipboard.setStringAsync(pool.session_code);
+                      Toast.show({
+                        type: 'success',
+                        text1: 'Copied!',
+                        text2: 'Session code copied to clipboard',
+                      });
+                    }
+                  }}
+                >
                   <Ionicons name="copy" size={20} color={colors.accent} />
                 </TouchableOpacity>
               </View>

@@ -16,7 +16,9 @@ class PoolCreate(PoolBase):
 
 class PoolResponse(PoolBase):
     id: int
+    session_code: str
     participant_count: int
+    created_by: Optional[int] = None
 
     class Config:
         orm_mode = True  # allows returning SQLAlchemy objects directly

@@ -19,6 +19,7 @@ async def generate_session_code() -> str:
 # CREATE POOL
 # --------------------------
 async def create_pool(db: AsyncSession, pool_data: PoolCreate):
+    import asyncio
     from app.services.scheduler import sync_competition_if_needed
 
     # 1. Generate session code
@@ -34,15 +35,22 @@ async def create_pool(db: AsyncSession, pool_data: PoolCreate):
     await db.commit()
     await db.refresh(new_pool)
     
-    # 3. If this is the first pool for this competition, sync fixtures
+    # 3. If this is the first pool for this competition, sync fixtures in background
     # This handles the edge case where a user creates a pool for a league
     # that wasn't previously active (no fixtures synced recently)
+    # NOTE: We fire-and-forget this task so pool creation returns immediately
     if new_pool.competition_id:
-        try:
-            await sync_competition_if_needed(db, new_pool.competition_id)
-        except Exception as e:
-            # Don't fail pool creation if fixture sync fails
-            print(f"Warning: Could not sync fixtures for competition {new_pool.competition_id}: {e}")
+        async def background_sync():
+            try:
+                # Create a new db session for background task
+                from app.database import AsyncSessionLocal
+                async with AsyncSessionLocal() as bg_db:
+                    await sync_competition_if_needed(bg_db, new_pool.competition_id)
+            except Exception as e:
+                print(f"Warning: Background sync failed for competition {new_pool.competition_id}: {e}")
+        
+        # Fire and forget - don't await
+        asyncio.create_task(background_sync())
     
     return new_pool
 
