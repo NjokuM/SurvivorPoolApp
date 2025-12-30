@@ -43,8 +43,8 @@ async def create_pool(db: AsyncSession, pool_data: PoolCreate):
         async def background_sync():
             try:
                 # Create a new db session for background task
-                from app.database import AsyncSessionLocal
-                async with AsyncSessionLocal() as bg_db:
+                from app.database import async_session
+                async with async_session() as bg_db:
                     await sync_competition_if_needed(bg_db, new_pool.competition_id)
             except Exception as e:
                 print(f"Warning: Background sync failed for competition {new_pool.competition_id}: {e}")

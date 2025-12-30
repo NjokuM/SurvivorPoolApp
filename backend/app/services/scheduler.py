@@ -93,7 +93,7 @@ async def smart_sync_and_process(db: AsyncSession) -> Dict:
     Returns immediately and processes in background if games are found.
     """
     import asyncio
-    from app.database import AsyncSessionLocal
+    from app.database import async_session
     
     # 1. Get active leagues only
     active_comp_ids = await get_active_competition_ids(db)
@@ -124,7 +124,7 @@ async def smart_sync_and_process(db: AsyncSession) -> Dict:
     
     # Background task for sync and processing
     async def background_sync_and_process():
-        async with AsyncSessionLocal() as bg_db:
+        async with async_session() as bg_db:
             for comp_id in comps_to_sync:
                 comp_result = await bg_db.execute(
                     select(Competition).where(Competition.id == comp_id)
@@ -184,7 +184,7 @@ async def weekly_schedule_refresh(db: AsyncSession) -> Dict:
     Only syncs active leagues. Returns immediately and runs in background.
     """
     import asyncio
-    from app.database import AsyncSessionLocal
+    from app.database import async_session
     
     # Get active competitions before spawning background task
     active_comp_ids = await get_active_competition_ids(db)
@@ -198,7 +198,7 @@ async def weekly_schedule_refresh(db: AsyncSession) -> Dict:
     
     # Background task that runs independently
     async def background_refresh():
-        async with AsyncSessionLocal() as bg_db:
+        async with async_session() as bg_db:
             for comp_id in active_comp_ids:
                 comp_result = await bg_db.execute(
                     select(Competition).where(Competition.id == comp_id)
