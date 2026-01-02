@@ -203,6 +203,60 @@ npx expo start
 - Press `i` for iOS simulator
 - Scan QR code with Expo Go app for physical device
 
+### 📱 Testing on a Physical Device (Expo Go)
+
+If you want to test the app on your physical phone using Expo Go, you need to configure the backend to accept connections from other devices on your network.
+
+**Step 1: Start the backend with network access**
+
+By default, the server only listens on `localhost`. To allow connections from other devices on your WiFi network, use the `--host 0.0.0.0` flag:
+
+```bash
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+**Step 2: Find your local network IP address**
+
+Your phone needs to connect to your computer's local IP (not `localhost` or `127.0.0.1`).
+
+**macOS:**
+```bash
+ipconfig getifaddr en0
+```
+
+**Windows:**
+```bash
+ipconfig
+# Look for "IPv4 Address" under your WiFi adapter
+```
+
+**Linux:**
+```bash
+hostname -I | awk '{print $1}'
+```
+
+Your IP will look something like `192.168.1.xxx`
+
+**Step 3: Update the frontend API base URL**
+
+Edit `frontend/survivorpool-mobile/src/api/api.js`:
+
+```javascript
+const API = axios.create({
+    baseURL: "http://YOUR_LOCAL_IP:8000"  // e.g., "http://192.168.1.100:8000"
+});
+```
+
+**Step 4: Ensure both devices are on the same WiFi network**
+
+Your phone and computer must be connected to the same WiFi network for this to work.
+
+**Troubleshooting:**
+- If you get "Network Error", verify the IP address is correct
+- Check that your firewall isn't blocking port 8000
+- Make sure the backend server is running with `--host 0.0.0.0`
+- Restart the Expo app after changing the API URL
+
 ## 📊 API Documentation
 
 ### Authentication
@@ -333,9 +387,13 @@ Set in Railway dashboard:
 
 ## 🐛 Known Issues
 
-- [ ] Fixture updates require manual trigger
-- [ ] No automatic result processing (admin endpoint required)
+- Improve the authentication for users - currently basic auth with limited security
 - [ ] Session management needs Redis for production scale
+- [ ] Need to add forget password functionality
+- [ ] Need to implement proper user pool deletion
+- [ ] Need to add ability to edit picks choices
+- [ ] Need to add ability to edit pool details
+- [ ] No rate limiting or security measures on API endpoints
 
 ## 🤝 Contributing
 
