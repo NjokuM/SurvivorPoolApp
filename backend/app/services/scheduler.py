@@ -198,6 +198,11 @@ async def weekly_schedule_refresh(db: AsyncSession) -> Dict:
     
     # Background task that runs independently
     async def background_refresh():
+        leagues_synced = 0
+        fixtures_updated = 0
+        fixtures_inserted = 0
+        errors = []
+        
         async with async_session() as bg_db:
             for comp_id in active_comp_ids:
                 comp_result = await bg_db.execute(
@@ -209,10 +214,27 @@ async def weekly_schedule_refresh(db: AsyncSession) -> Dict:
                 
                 filters = FixtureFilters(league=comp.external_id, season=comp.season)
                 try:
-                    await update_fixtures_from_api(bg_db, filters)
-                    print(f"Refreshed fixtures for {comp.name}")
+                    result = await update_fixtures_from_api(bg_db, filters)
+                    leagues_synced += 1
+                    fixtures_updated += result.get("updated", 0)
+                    fixtures_inserted += result.get("inserted", 0)
+                    print(f"✓ Refreshed {comp.name}: {result.get('updated', 0)} updated, {result.get('inserted', 0)} inserted")
                 except Exception as e:
-                    print(f"Error refreshing league {comp_id}: {e}")
+                    errors.append(f"{comp.name}: {str(e)}")
+                    print(f"✗ Error refreshing {comp.name}: {e}")
+        
+        # Log completion summary
+        print(f"\n{'='*50}")
+        print(f"WEEKLY REFRESH COMPLETED")
+        print(f"{'='*50}")
+        print(f"Leagues synced: {leagues_synced}/{len(active_comp_ids)}")
+        print(f"Fixtures updated: {fixtures_updated}")
+        print(f"Fixtures inserted: {fixtures_inserted}")
+        if errors:
+            print(f"Errors: {len(errors)}")
+            for err in errors:
+                print(f"  - {err}")
+        print(f"{'='*50}\n")
     
     # Fire and forget - don't await
     asyncio.create_task(background_refresh())
