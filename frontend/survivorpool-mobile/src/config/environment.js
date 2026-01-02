@@ -11,7 +11,7 @@ const ENVIRONMENTS = {
     name: 'Integration',
   },
   prod: {
-    API_BASE_URL: 'https://survivorpoolapp.up.railway.app', // Update when you have prod URL
+    API_BASE_URL: 'https://survivorpoolapp-production.up.railway.app',
     name: 'Production',
   },
 };
