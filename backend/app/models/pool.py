@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, func
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Boolean, func
 from sqlalchemy.orm import relationship
 from app.models.base import Base
 
@@ -14,6 +14,7 @@ class Pool(Base):
     max_picks_per_team = Column(Integer, nullable=False, default=2)
     total_lives = Column(Integer, nullable=False, default=3)
     created_by = Column(Integer, ForeignKey("users.id")) # TODO nullable = False
+    is_active = Column(Boolean, nullable=False, default=True, server_default="true")
 
     competition = relationship("Competition")
     users_stats = relationship("PoolUserStats", back_populates="pool")

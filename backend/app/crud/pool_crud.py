@@ -1,6 +1,7 @@
 import secrets
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy import delete
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
 from sqlalchemy.orm import selectinload
@@ -190,3 +191,80 @@ async def update_pool_user_stats(
     await db.commit()
     await db.refresh(stats)
     return stats
+
+
+# --------------------------
+# DELETE POOL
+# --------------------------
+async def delete_pool(db: AsyncSession, pool_id: int, user_id: int):
+    """
+    Delete a pool. Only the creator can delete it.
+    Cascades to delete all pool_user_stats and picks.
+    """
+    from app.models.pick import Pick
+    
+    # Get the pool
+    pool = await get_pool_by_id(db, pool_id)
+    if not pool:
+        raise HTTPException(status_code=404, detail="Pool not found")
+    
+    # Check if user is the creator
+    if pool.created_by != user_id:
+        raise HTTPException(status_code=403, detail="Only the pool creator can delete this pool")
+    
+    # Delete all picks for this pool
+    await db.execute(
+        delete(Pick).where(Pick.pool_id == pool_id)
+    )
+    
+    # Delete all user stats for this pool
+    await db.execute(
+        delete(PoolUserStats).where(PoolUserStats.pool_id == pool_id)
+    )
+    
+    # Delete the pool
+    await db.execute(
+        delete(Pool).where(Pool.id == pool_id)
+    )
+    
+    await db.commit()
+    
+    return {"message": f"Pool '{pool.name}' and all associated data deleted successfully"}
+
+
+# --------------------------
+# LEAVE POOL
+# --------------------------
+async def leave_pool(db: AsyncSession, pool_id: int, user_id: int):
+    """
+    Leave a pool. Creators cannot leave - they must delete instead.
+    """
+    from app.models.pick import Pick
+    
+    # Get the pool
+    pool = await get_pool_by_id(db, pool_id)
+    if not pool:
+        raise HTTPException(status_code=404, detail="Pool not found")
+    
+    # Check if user is the creator
+    if pool.created_by == user_id:
+        raise HTTPException(status_code=400, detail="Pool creator cannot leave. Delete the pool instead.")
+    
+    # Check if user is in the pool
+    stats = await get_pool_user_stats(db, pool_id, user_id)
+    if not stats:
+        raise HTTPException(status_code=404, detail="You are not a member of this pool")
+    
+    # Delete user's picks for this pool
+    await db.execute(
+        delete(Pick).where(Pick.pool_id == pool_id, Pick.user_id == user_id)
+    )
+    
+    # Delete user stats
+    await db.execute(
+        delete(PoolUserStats).where(PoolUserStats.pool_id == pool_id, PoolUserStats.user_id == user_id)
+    )
+    
+    await db.commit()
+    
+    return {"message": "Successfully left the pool"}

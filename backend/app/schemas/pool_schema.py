@@ -10,6 +10,7 @@ class PoolBase(BaseModel):
     start_gameweek: Optional[int] = None
     max_picks_per_team: Optional[int] = 2
     total_lives: Optional[int] = 3
+    is_active: Optional[bool] = True
 
 class PoolCreate(PoolBase):
     created_by: int

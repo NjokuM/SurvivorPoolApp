@@ -790,4 +790,41 @@ export const createStyles = (colors) => StyleSheet.create({
     fontWeight: '600',
     color: colors.primary,
   },
+  // Pool Actions (Leave/Delete)
+  poolActionsContainer: {
+    marginTop: 16,
+    gap: 12,
+  },
+  leaveButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.warning + '20',
+    borderWidth: 1,
+    borderColor: colors.warning,
+    borderRadius: 12,
+    paddingVertical: 14,
+    gap: 8,
+  },
+  leaveButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.warning,
+  },
+  deleteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.error + '20',
+    borderWidth: 1,
+    borderColor: colors.error,
+    borderRadius: 12,
+    paddingVertical: 14,
+    gap: 8,
+  },
+  deleteButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.error,
+  },
 });

@@ -89,3 +89,25 @@ async def get_user_pools(user_id: int, db: AsyncSession = Depends(get_db)):
 async def get_pool_leaderboard(pool_id: int, db: AsyncSession = Depends(get_db)):
     """Displays all users in a pool and ranks the users based on their total points and lives"""
     return await leaderboard.get_leaderboard(db, pool_id)
+
+
+# --------------------- DELETE POOL --------------------- #
+@router.delete("/pools/{pool_id}", status_code=status.HTTP_200_OK)
+async def delete_pool(pool_id: int, user_id: int, db: AsyncSession = Depends(get_db)):
+    """
+    Delete a pool. Only the pool creator can delete it.
+    This will also delete all associated user stats and picks.
+    """
+    result = await pool_crud.delete_pool(db, pool_id, user_id)
+    return result
+
+
+# --------------------- LEAVE POOL --------------------- #
+@router.delete("/pools/{pool_id}/leave", status_code=status.HTTP_200_OK)
+async def leave_pool(pool_id: int, user_id: int, db: AsyncSession = Depends(get_db)):
+    """
+    Leave a pool. Users can leave pools they've joined.
+    Pool creators cannot leave - they must delete the pool instead.
+    """
+    result = await pool_crud.leave_pool(db, pool_id, user_id)
+    return result

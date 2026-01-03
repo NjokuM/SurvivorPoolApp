@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, StatusBar, RefreshControl, Image } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, StatusBar, RefreshControl, Image, Alert } from 'react-native';
 import { useEffect, useState, useCallback } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
@@ -46,7 +46,7 @@ export default function PoolDetailScreen({ route, navigation }) {
       setCurrentGameweek(data.currentGameweek);
       setEarliestKickoff(data.earliestKickoff);
       setHasCurrentPick(data.hasCurrentPick || false);
-      setHistoryWeek(Math.max(1, data.currentGameweek - 1));
+      setHistoryWeek(data.currentGameweek);
       if (!pickGameweek) setPickGameweek(data.currentGameweek); // Default to current gameweek
     } catch (error) {
       console.error('Error loading pool data:', error);
@@ -64,6 +64,70 @@ export default function PoolDetailScreen({ route, navigation }) {
     setRefreshing(true);
     loadData();
   }, [loadData]);
+
+  const isPoolCreator = pool?.created_by === userId;
+
+  const handleLeavePool = () => {
+    Alert.alert(
+      'Leave Pool',
+      'Are you sure you want to leave this pool? Your picks and stats will be deleted.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Leave',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await apiService.leavePool(poolId, userId);
+              Toast.show({
+                type: 'success',
+                text1: 'Left Pool',
+                text2: 'You have successfully left the pool',
+              });
+              navigation.goBack();
+            } catch (error) {
+              Toast.show({
+                type: 'error',
+                text1: 'Error',
+                text2: error.message || 'Failed to leave pool',
+              });
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDeletePool = () => {
+    Alert.alert(
+      'Delete Pool',
+      'Are you sure you want to delete this pool? This action cannot be undone and will remove all members, picks, and stats.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await apiService.deletePool(poolId, userId);
+              Toast.show({
+                type: 'success',
+                text1: 'Pool Deleted',
+                text2: 'The pool has been permanently deleted',
+              });
+              navigation.goBack();
+            } catch (error) {
+              Toast.show({
+                type: 'error',
+                text1: 'Error',
+                text2: error.message || 'Failed to delete pool',
+              });
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const handleMakePick = async () => {
     if (!selectedTeam) {
@@ -225,22 +289,24 @@ export default function PoolDetailScreen({ route, navigation }) {
         {/* SUMMARY TAB */}
         {activeTab === 'summary' && (
           <>
-            {/* Deadline Alert */}
-            <View style={styles.deadlineCard}>
-              <View style={styles.deadlineIcon}>
-                <Ionicons name="alarm" size={24} color={colors.warning} />
+            {/* Deadline Alert - only show if user hasn't made a pick */}
+            {!hasCurrentPick && (
+              <View style={styles.deadlineCard}>
+                <View style={styles.deadlineIcon}>
+                  <Ionicons name="alarm" size={24} color={colors.warning} />
+                </View>
+                <View style={styles.deadlineContent}>
+                  <Text style={styles.deadlineLabel}>Pick Deadline</Text>
+                  <Text style={styles.deadlineTime}>{getDeadlineCountdown()}</Text>
+                </View>
+                <TouchableOpacity 
+                  style={styles.deadlineButton}
+                  onPress={() => setActiveTab('pick')}
+                >
+                  <Text style={styles.deadlineButtonText}>Make Pick</Text>
+                </TouchableOpacity>
               </View>
-              <View style={styles.deadlineContent}>
-                <Text style={styles.deadlineLabel}>Pick Deadline</Text>
-                <Text style={styles.deadlineTime}>{getDeadlineCountdown()}</Text>
-              </View>
-              <TouchableOpacity 
-                style={styles.deadlineButton}
-                onPress={() => setActiveTab('pick')}
-              >
-                <Text style={styles.deadlineButtonText}>Make Pick</Text>
-              </TouchableOpacity>
-            </View>
+            )}
 
             {/* Stats Overview */}
             <View style={styles.statsGrid}>
@@ -269,22 +335,29 @@ export default function PoolDetailScreen({ route, navigation }) {
               </View>
             </View>
 
-            {/* Recent Pick */}
-            {userPicks.length > 0 && (
-              <View style={styles.recentPickCard}>
-                <Text style={styles.cardTitle}>Your Last Pick</Text>
-                <View style={styles.recentPickContent}>
-                  <View style={styles.teamBadge}>
-                    <Text style={styles.teamBadgeText}>
-                      {teams.find(t => t.id === userPicks[userPicks.length - 1]?.team_id)?.name || 'Team'}
-                    </Text>
+            {/* This Week's Pick */}
+            {(() => {
+              const thisWeekPick = userPicks.find(p => p.gameweek === currentGameweek);
+              const thisWeekTeam = thisWeekPick ? teams.find(t => t.id === thisWeekPick.team_id) : null;
+              
+              return (
+                <View style={styles.recentPickCard}>
+                  <Text style={styles.cardTitle}>Your Pick This Week</Text>
+                  <View style={styles.recentPickContent}>
+                    {thisWeekTeam ? (
+                      <>
+                        <View style={styles.teamBadge}>
+                          <Text style={styles.teamBadgeText}>{thisWeekTeam.name}</Text>
+                        </View>
+                        <Text style={styles.recentPickWeek}>Gameweek {currentGameweek}</Text>
+                      </>
+                    ) : (
+                      <Text style={styles.recentPickWeek}>No pick yet</Text>
+                    )}
                   </View>
-                  <Text style={styles.recentPickWeek}>
-                    Gameweek {userPicks[userPicks.length - 1]?.gameweek || currentGameweek - 1}
-                  </Text>
                 </View>
-              </View>
-            )}
+              );
+            })()}
 
             {/* Top 3 Leaderboard Preview */}
             <View style={styles.leaderboardPreview}>
@@ -530,7 +603,7 @@ export default function PoolDetailScreen({ route, navigation }) {
                     <Text style={styles.weekText}>Gameweek {historyWeek}</Text>
                     <TouchableOpacity 
                       style={styles.weekButton}
-                      onPress={() => setHistoryWeek(Math.min(currentGameweek - 1, historyWeek + 1))}
+                      onPress={() => setHistoryWeek(Math.min(currentGameweek, historyWeek + 1))}
                     >
                       <Ionicons name="chevron-forward" size={20} color={colors.textPrimary} />
                     </TouchableOpacity>
@@ -628,8 +701,8 @@ export default function PoolDetailScreen({ route, navigation }) {
                 </View>
 
                 {/* All picks for this user */}
-                {[...Array(currentGameweek - 1)].map((_, i) => {
-                  const gw = currentGameweek - 1 - i;
+                {[...Array(currentGameweek)].map((_, i) => {
+                  const gw = currentGameweek - i;
                   const pick = allPoolPicks.find(p => p.user_id === selectedHistoryUser.user_id && p.gameweek === gw);
                   const team = pick ? teams.find(t => t.id === pick.team_id) : null;
                   
@@ -715,13 +788,31 @@ export default function PoolDetailScreen({ route, navigation }) {
                     </Text>
                   </View>
                   <Text style={styles.memberName}>{entry.username}</Text>
-                  {entry.user_id === pool?.creator_id && (
+                  {entry.user_id === pool?.created_by && (
                     <View style={styles.creatorBadge}>
                       <Text style={styles.creatorBadgeText}>Creator</Text>
                     </View>
                   )}
                 </View>
               ))}
+            </View>
+
+            {/* Pool Actions */}
+            <View style={styles.infoCard}>
+              <Text style={styles.infoTitle}>Pool Actions</Text>
+              <View style={styles.poolActionsContainer}>
+                {isPoolCreator ? (
+                  <TouchableOpacity style={styles.deleteButton} onPress={handleDeletePool}>
+                    <Ionicons name="trash" size={20} color={colors.error} />
+                    <Text style={styles.deleteButtonText}>Delete Pool</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity style={styles.leaveButton} onPress={handleLeavePool}>
+                    <Ionicons name="exit" size={20} color={colors.warning} />
+                    <Text style={styles.leaveButtonText}>Leave Pool</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
           </>
         )}

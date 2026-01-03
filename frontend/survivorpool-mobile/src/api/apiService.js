@@ -269,6 +269,34 @@ export const createPool = async (poolData) => {
   }
 };
 
+// Leave a pool (user removes themselves from pool)
+export const leavePool = async (poolId, userId) => {
+  if (USE_MOCK_DATA) {
+    await mockDelay(500);
+    return { message: 'Successfully left the pool' };
+  }
+  try {
+    const res = await API.delete(`/pools/${poolId}/leave`, { params: { user_id: userId } });
+    return res.data;
+  } catch (error) {
+    throw new Error(getErrorMessage(error));
+  }
+};
+
+// Delete a pool (only creator can delete)
+export const deletePool = async (poolId, userId) => {
+  if (USE_MOCK_DATA) {
+    await mockDelay(500);
+    return { message: 'Pool deleted successfully' };
+  }
+  try {
+    const res = await API.delete(`/pools/${poolId}`, { params: { user_id: userId } });
+    return res.data;
+  } catch (error) {
+    throw new Error(getErrorMessage(error));
+  }
+};
+
 export const getPoolLeaderboard = async (poolId) => {
   if (USE_MOCK_DATA) {
     await mockDelay(400);
@@ -568,6 +596,8 @@ export default {
   joinPool,
   joinPoolByCode,
   createPool,
+  leavePool,
+  deletePool,
   getPoolLeaderboard,
   getCompetitions,
   getTeams,

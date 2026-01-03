@@ -23,7 +23,7 @@ const ENVIRONMENTS = {
 // For EAS builds: Set APP_ENV in eas.json build profiles
 // For local dev: Change DEFAULT_ENV below
 // ============================================================
-const DEFAULT_ENV = 'int'; // Fallback for local development
+const DEFAULT_ENV = 'local'; // Fallback for local development
 
 // Read from EAS build environment variable if available
 const CURRENT_ENV = process.env.APP_ENV || DEFAULT_ENV;

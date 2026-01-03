@@ -171,7 +171,9 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 API will be available at `http://localhost:8000`
-API docs at `http://localhost:8000/docs`
+
+> **Tip:** Uvicorn logs will print `http://0.0.0.0:<port>` because the server binds to all network interfaces. Replace `0.0.0.0` with `localhost` (or your LAN IP) in the browser address bar to open the API.  
+> Example: visit `http://localhost:8000/docs` for Swagger UI or `http://localhost:8000/redoc` for ReDoc.
 
 ### Frontend Setup
 
