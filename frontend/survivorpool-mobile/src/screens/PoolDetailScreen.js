@@ -155,18 +155,37 @@ export default function PoolDetailScreen({ route, navigation }) {
         return;
       }
       
-      await apiService.createPick({
-        pool_id: poolId,
-        user_id: userId,
-        team_id: selectedTeam,
-        fixture_id: fixture.id,
-      });
+      // Check if user already has a pick for this gameweek (edit scenario)
+      const existingPick = userPicks.find(p => p.gameweek === pickGameweek);
       
-      Toast.show({
-        type: 'success',
-        text1: 'Pick Submitted!',
-        text2: `Your pick for Gameweek ${pickGameweek} is locked in`,
-      });
+      if (existingPick) {
+        // Update existing pick
+        await apiService.updatePick(existingPick.id, {
+          team_id: selectedTeam,
+          fixture_id: fixture.id,
+        });
+        
+        Toast.show({
+          type: 'success',
+          text1: 'Pick Updated!',
+          text2: `Your pick for Gameweek ${pickGameweek} has been changed`,
+        });
+      } else {
+        // Create new pick
+        await apiService.createPick({
+          pool_id: poolId,
+          user_id: userId,
+          team_id: selectedTeam,
+          fixture_id: fixture.id,
+        });
+        
+        Toast.show({
+          type: 'success',
+          text1: 'Pick Submitted!',
+          text2: `Your pick for Gameweek ${pickGameweek} is locked in`,
+        });
+      }
+      
       setSelectedTeam(null);
       loadData();
     } catch (error) {
@@ -192,7 +211,7 @@ export default function PoolDetailScreen({ route, navigation }) {
     const diff = deadline - now;
     
     if (diff <= 0) {
-      return 'Deadline passed';
+      return 'Games Started';
     }
     
     const hours = Math.floor(diff / (1000 * 60 * 60));
@@ -290,23 +309,45 @@ export default function PoolDetailScreen({ route, navigation }) {
         {activeTab === 'summary' && (
           <>
             {/* Deadline Alert - only show if user hasn't made a pick */}
-            {!hasCurrentPick && (
-              <View style={styles.deadlineCard}>
-                <View style={styles.deadlineIcon}>
-                  <Ionicons name="alarm" size={24} color={colors.warning} />
+            {!hasCurrentPick && (() => {
+              const gamesStarted = earliestKickoff && new Date(earliestKickoff) <= new Date();
+              
+              return gamesStarted ? (
+                <View style={[styles.deadlineCard, styles.deadlineCardUrgent]}>
+                  <View style={[styles.deadlineIcon, styles.deadlineIconUrgent]}>
+                    <Ionicons name="warning" size={24} color={colors.error} />
+                  </View>
+                  <View style={styles.deadlineContent}>
+                    <Text style={[styles.deadlineLabel, styles.deadlineLabelUrgent]}>Games Started</Text>
+                    <Text style={[styles.deadlineTime, styles.deadlineTimeUrgent]}>
+                      Some teams may be unavailable
+                    </Text>
+                  </View>
+                  <TouchableOpacity 
+                    style={[styles.deadlineButton, styles.deadlineButtonUrgent]}
+                    onPress={() => setActiveTab('pick')}
+                  >
+                    <Text style={styles.deadlineButtonText}>Pick Now</Text>
+                  </TouchableOpacity>
                 </View>
-                <View style={styles.deadlineContent}>
-                  <Text style={styles.deadlineLabel}>Pick Deadline</Text>
-                  <Text style={styles.deadlineTime}>{getDeadlineCountdown()}</Text>
+              ) : (
+                <View style={styles.deadlineCard}>
+                  <View style={styles.deadlineIcon}>
+                    <Ionicons name="alarm" size={24} color={colors.warning} />
+                  </View>
+                  <View style={styles.deadlineContent}>
+                    <Text style={styles.deadlineLabel}>Pick Deadline</Text>
+                    <Text style={styles.deadlineTime}>{getDeadlineCountdown()}</Text>
+                  </View>
+                  <TouchableOpacity 
+                    style={styles.deadlineButton}
+                    onPress={() => setActiveTab('pick')}
+                  >
+                    <Text style={styles.deadlineButtonText}>Make Pick</Text>
+                  </TouchableOpacity>
                 </View>
-                <TouchableOpacity 
-                  style={styles.deadlineButton}
-                  onPress={() => setActiveTab('pick')}
-                >
-                  <Text style={styles.deadlineButtonText}>Make Pick</Text>
-                </TouchableOpacity>
-              </View>
-            )}
+              );
+            })()}
 
             {/* Stats Overview */}
             <View style={styles.statsGrid}>
@@ -335,29 +376,53 @@ export default function PoolDetailScreen({ route, navigation }) {
               </View>
             </View>
 
-            {/* This Week's Pick */}
-            {(() => {
-              const thisWeekPick = userPicks.find(p => p.gameweek === currentGameweek);
-              const thisWeekTeam = thisWeekPick ? teams.find(t => t.id === thisWeekPick.team_id) : null;
-              
-              return (
-                <View style={styles.recentPickCard}>
-                  <Text style={styles.cardTitle}>Your Pick This Week</Text>
-                  <View style={styles.recentPickContent}>
-                    {thisWeekTeam ? (
-                      <>
-                        <View style={styles.teamBadge}>
-                          <Text style={styles.teamBadgeText}>{thisWeekTeam.name}</Text>
-                        </View>
-                        <Text style={styles.recentPickWeek}>Gameweek {currentGameweek}</Text>
-                      </>
+            {/* Picks for This Week - All Pool Members */}
+            <View style={styles.recentPickCard}>
+              <View style={styles.cardHeader}>
+                <Text style={styles.cardTitle}>Picks This Week</Text>
+                <Text style={styles.cardSubtitle}>Gameweek {currentGameweek}</Text>
+              </View>
+              {leaderboard.map((entry) => {
+                const memberPick = allPoolPicks.find(p => p.user_id === entry.user_id && p.gameweek === currentGameweek);
+                const memberTeam = memberPick ? teams.find(t => t.id === memberPick.team_id) : null;
+                const isCurrentUser = entry.user_id === userId;
+                const pickResult = memberPick?.result?.toUpperCase();
+                
+                return (
+                  <View key={entry.user_id} style={[styles.weekPickRow, isCurrentUser && styles.weekPickRowHighlight]}>
+                    <View style={styles.weekPickUser}>
+                      <View style={[styles.weekPickAvatar, isCurrentUser && styles.weekPickAvatarHighlight]}>
+                        <Text style={[styles.weekPickAvatarText, isCurrentUser && styles.weekPickAvatarTextHighlight]}>
+                          {entry.username[0].toUpperCase()}
+                        </Text>
+                      </View>
+                      <Text style={[styles.weekPickUsername, isCurrentUser && styles.weekPickUsernameHighlight]}>
+                        {isCurrentUser ? 'You' : entry.username}
+                      </Text>
+                    </View>
+                    {memberTeam ? (
+                      <View style={[
+                        styles.weekPickTeamBadge,
+                        pickResult === 'WIN' && styles.weekPickTeamBadgeWin,
+                        pickResult === 'DRAW' && styles.weekPickTeamBadgeDraw,
+                        pickResult === 'LOSS' && styles.weekPickTeamBadgeLoss,
+                      ]}>
+                        <Text style={[
+                          styles.weekPickTeamText,
+                          pickResult === 'WIN' && styles.weekPickTeamTextWin,
+                          pickResult === 'DRAW' && styles.weekPickTeamTextDraw,
+                          pickResult === 'LOSS' && styles.weekPickTeamTextLoss,
+                        ]}>
+                          {memberTeam.short_name || memberTeam.name}
+                        </Text>
+                      </View>
                     ) : (
-                      <Text style={styles.recentPickWeek}>No pick yet</Text>
+                      <Text style={styles.weekPickNoPick}>No pick</Text>
                     )}
                   </View>
-                </View>
-              );
-            })()}
+                );
+              })}
+            </View>
 
             {/* Top 3 Leaderboard Preview */}
             <View style={styles.leaderboardPreview}>
@@ -430,79 +495,124 @@ export default function PoolDetailScreen({ route, navigation }) {
             </View>
 
             {/* Teams Grid */}
-            <View style={styles.teamsGrid}>
-              {teams.map((team) => {
-                const isSelected = selectedTeam === team.id;
-                const isUsed = usedTeamIds.includes(team.id);
-                const usedCount = usedTeamIds.filter(id => id === team.id).length;
-                const isMaxed = usedCount >= (pool?.max_picks_per_team || 2);
-                
-                // Find fixture for this team in the selected gameweek
-                const gameweekFixture = fixtures.find(f => 
-                  (f.home_team_id === team.id || f.away_team_id === team.id) &&
-                  f.gameweek === pickGameweek
-                );
-                
-                // Build match display string for selected gameweek
-                let matchDisplay = 'No match this week';
-                if (gameweekFixture) {
-                  const homeTeam = teams.find(t => t.id === gameweekFixture.home_team_id);
-                  const awayTeam = teams.find(t => t.id === gameweekFixture.away_team_id);
-                  const homeShort = homeTeam?.short_name || homeTeam?.name?.substring(0, 3) || 'TBD';
-                  const awayShort = awayTeam?.short_name || awayTeam?.name?.substring(0, 3) || 'TBD';
-                  matchDisplay = `${homeShort} vs ${awayShort}`;
-                }
-                
-                return (
-                  <TouchableOpacity
-                    key={team.id}
-                    style={[
-                      styles.teamCard,
-                      isSelected && styles.teamCardSelected,
-                      isMaxed && styles.teamCardDisabled,
-                      !gameweekFixture && styles.teamCardDisabled,
-                    ]}
-                    onPress={() => !isMaxed && gameweekFixture && setSelectedTeam(isSelected ? null : team.id)}
-                    disabled={isMaxed || !gameweekFixture}
-                    activeOpacity={0.7}
-                  >
-                    {isMaxed && (
-                      <View style={styles.teamCardOverlay}>
-                        <Ionicons name="close-circle" size={24} color={colors.error} />
-                      </View>
-                    )}
-                    <Image
-                      source={{ uri: team.logo }}
-                      style={styles.teamLogo}
-                      resizeMode="contain"
-                    />
-                    <Text style={styles.teamName} numberOfLines={1}>{team.name}</Text>
-                    <Text style={styles.teamFixture} numberOfLines={1}>{matchDisplay}</Text>
-                    {usedCount > 0 && !isMaxed && (
-                      <View style={styles.usedCountBadge}>
-                        <Text style={styles.usedCountText}>{usedCount}</Text>
-                      </View>
-                    )}
-                    {isSelected && (
-                      <View style={styles.selectedIndicator}>
-                        <Ionicons name="checkmark-circle" size={16} color={colors.accent} />
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+            {(() => {
+              // Check if user's current pick for this gameweek has already started (lock editing)
+              const existingPick = userPicks.find(p => p.gameweek === pickGameweek);
+              const existingPickFixture = existingPick ? fixtures.find(f => f.id === existingPick.fixture_id) : null;
+              const currentPickStarted = existingPickFixture && new Date(existingPickFixture.kickoff_time) <= new Date();
+              
+              return (
+                <View style={styles.teamsGrid}>
+                  {teams.map((team) => {
+                    const isSelected = selectedTeam === team.id;
+                    const isUsed = usedTeamIds.includes(team.id);
+                    const usedCount = usedTeamIds.filter(id => id === team.id).length;
+                    const isMaxed = usedCount >= (pool?.max_picks_per_team || 2);
+                    
+                    // Check if this is the user's pick for this gameweek
+                    const isUserPick = existingPick && existingPick.team_id === team.id;
+                    
+                    // Find fixture for this team in the selected gameweek
+                    const gameweekFixture = fixtures.find(f => 
+                      (f.home_team_id === team.id || f.away_team_id === team.id) &&
+                      f.gameweek === pickGameweek
+                    );
+                    
+                    // Check if match has already started
+                    const matchStarted = gameweekFixture && new Date(gameweekFixture.kickoff_time) <= new Date();
+                    
+                    // Build match display string for selected gameweek
+                    let matchDisplay = 'No match this week';
+                    if (gameweekFixture) {
+                      const homeTeam = teams.find(t => t.id === gameweekFixture.home_team_id);
+                      const awayTeam = teams.find(t => t.id === gameweekFixture.away_team_id);
+                      const homeShort = homeTeam?.short_name || homeTeam?.name?.substring(0, 3) || 'TBD';
+                      const awayShort = awayTeam?.short_name || awayTeam?.name?.substring(0, 3) || 'TBD';
+                      matchDisplay = `${homeShort} vs ${awayShort}`;
+                    }
+                    
+                    // Determine if team is disabled:
+                    // - maxed out picks for this team
+                    // - no fixture this week
+                    // - this team's match has started
+                    // - user's current pick's match has started (can't edit anymore)
+                    // - this is the user's current pick (no point selecting same team)
+                    const isDisabled = isMaxed || !gameweekFixture || matchStarted || (currentPickStarted && !isUserPick) || isUserPick;
+                    
+                    return (
+                      <TouchableOpacity
+                        key={team.id}
+                        style={[
+                          styles.teamCard,
+                          isSelected && styles.teamCardSelected,
+                          isUserPick && styles.teamCardUserPick,
+                          isDisabled && !isUserPick && styles.teamCardDisabled,
+                        ]}
+                        onPress={() => !isDisabled && !currentPickStarted && setSelectedTeam(isSelected ? null : team.id)}
+                        disabled={isDisabled || currentPickStarted}
+                        activeOpacity={0.7}
+                      >
+                        {/* Match Started ribbon banner */}
+                        {matchStarted && !isMaxed && !isUserPick && (
+                          <View style={styles.matchStartedBanner} pointerEvents="none">
+                            <View style={styles.matchStartedRibbon}>
+                              <Text style={styles.matchStartedText}>STARTED</Text>
+                            </View>
+                          </View>
+                        )}
+                        {/* User's Pick indicator */}
+                        {isUserPick && (
+                          <View style={styles.userPickBadge}>
+                            <Text style={styles.userPickBadgeText}>YOUR PICK</Text>
+                          </View>
+                        )}
+                        <Image
+                          source={{ uri: team.logo }}
+                          style={styles.teamLogo}
+                          resizeMode="contain"
+                        />
+                        <Text style={styles.teamName} numberOfLines={1}>{team.name}</Text>
+                        <Text style={styles.teamFixture} numberOfLines={1}>{matchDisplay}</Text>
+                        {usedCount > 0 && (
+                          <View style={[styles.usedCountBadge, isMaxed && styles.usedCountBadgeMaxed]}>
+                            <Text style={[styles.usedCountText, isMaxed && styles.usedCountTextMaxed]}>
+                              {usedCount}/{pool?.max_picks_per_team || 2}
+                            </Text>
+                          </View>
+                        )}
+                        {isSelected && (
+                          <View style={styles.selectedIndicator}>
+                            <Ionicons name="checkmark-circle" size={16} color={colors.accent} />
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              );
+            })()}
 
             {/* Confirm Button */}
-            {selectedTeam && (
-              <View style={styles.confirmContainer}>
-                <TouchableOpacity style={styles.confirmButton} onPress={handleMakePick}>
-                  <Text style={styles.confirmButtonText}>
-                    Confirm Pick: {teams.find(t => t.id === selectedTeam)?.name}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            )}
+            {selectedTeam && (() => {
+              const existingPickForGameweek = userPicks.find(p => p.gameweek === pickGameweek);
+              const isEditMode = !!existingPickForGameweek;
+              
+              return (
+                <View style={styles.confirmContainer}>
+                  <TouchableOpacity 
+                    style={[styles.confirmButton, isEditMode && styles.confirmButtonEdit]} 
+                    onPress={handleMakePick}
+                  >
+                    <Text style={styles.confirmButtonText}>
+                      {isEditMode 
+                        ? `Confirm Pick Edit: ${teams.find(t => t.id === selectedTeam)?.name}`
+                        : `Confirm Pick: ${teams.find(t => t.id === selectedTeam)?.name}`
+                      }
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            })()}
           </>
         )}
 
@@ -636,7 +746,7 @@ export default function PoolDetailScreen({ route, navigation }) {
                               pick?.result === 'loss' && styles.historyResultLoss,
                             ]}>
                               <Text style={styles.historyResultText}>
-                                {pick?.result === 'win' ? '✓' : pick?.result === 'draw' ? '=' : pick?.result === 'loss' ? '✗' : '-'}
+                                {pick?.result === 'win' ? '✓' : pick?.result === 'draw' ? 'D' : pick?.result === 'loss' ? '✗' : '-'}
                               </Text>
                             </View>
                           </>
@@ -721,7 +831,7 @@ export default function PoolDetailScreen({ route, navigation }) {
                             pick?.result === 'loss' && styles.historyResultLoss,
                           ]}>
                             <Text style={styles.historyResultText}>
-                              {pick?.result === 'win' ? '✓' : pick?.result === 'draw' ? '=' : pick?.result === 'loss' ? '✗' : '-'}
+                              {pick?.result === 'win' ? '✓' : pick?.result === 'draw' ? 'D' : pick?.result === 'loss' ? '✗' : '-'}
                             </Text>
                           </View>
                         </>

@@ -152,11 +152,6 @@ export default function LoginScreen({ navigation }) {
                 </Text>
               </TouchableOpacity>
 
-              <View style={styles.demoContainer}>
-                <Text style={styles.demoTitle}>Demo Credentials</Text>
-                <Text style={styles.demoText}>Email: user1@example.com</Text>
-                <Text style={styles.demoText}>Password: password123</Text>
-              </View>
             </View>
           </View>
         </ScrollView>

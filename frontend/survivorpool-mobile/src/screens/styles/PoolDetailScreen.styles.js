@@ -111,6 +111,10 @@ export const createStyles = (colors) => StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.warning + '30',
   },
+  deadlineCardUrgent: {
+    backgroundColor: colors.error + '15',
+    borderColor: colors.error + '30',
+  },
   deadlineIcon: {
     width: 48,
     height: 48,
@@ -118,6 +122,9 @@ export const createStyles = (colors) => StyleSheet.create({
     backgroundColor: colors.warning + '20',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  deadlineIconUrgent: {
+    backgroundColor: colors.error + '20',
   },
   deadlineContent: {
     flex: 1,
@@ -128,16 +135,28 @@ export const createStyles = (colors) => StyleSheet.create({
     color: colors.textMuted,
     marginBottom: 2,
   },
+  deadlineLabelUrgent: {
+    color: colors.error,
+    fontWeight: '600',
+  },
   deadlineTime: {
     fontSize: 20,
     fontWeight: '700',
     color: colors.warning,
+  },
+  deadlineTimeUrgent: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: colors.error,
   },
   deadlineButton: {
     backgroundColor: colors.accent,
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 10,
+  },
+  deadlineButtonUrgent: {
+    backgroundColor: colors.error,
   },
   deadlineButtonText: {
     color: colors.textOnAccent,
@@ -220,6 +239,92 @@ export const createStyles = (colors) => StyleSheet.create({
     fontSize: 13,
     color: colors.textMuted,
   },
+  cardSubtitle: {
+    fontSize: 12,
+    color: colors.textMuted,
+  },
+  weekPickRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  weekPickRowHighlight: {
+    backgroundColor: '#9333EA' + '15',
+    marginHorizontal: -16,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  weekPickUser: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  weekPickAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  weekPickAvatarHighlight: {
+    backgroundColor: '#9333EA' + '30',
+  },
+  weekPickAvatarText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textMuted,
+  },
+  weekPickAvatarTextHighlight: {
+    color: '#9333EA',
+  },
+  weekPickUsername: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.textPrimary,
+  },
+  weekPickUsernameHighlight: {
+    fontWeight: '700',
+    color: '#9333EA',
+  },
+  weekPickTeamBadge: {
+    backgroundColor: colors.warning + '20',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+  },
+  weekPickTeamBadgeWin: {
+    backgroundColor: colors.success + '20',
+  },
+  weekPickTeamBadgeDraw: {
+    backgroundColor: '#9CA3AF' + '30',
+  },
+  weekPickTeamBadgeLoss: {
+    backgroundColor: colors.error + '20',
+  },
+  weekPickTeamText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.warning,
+  },
+  weekPickTeamTextWin: {
+    color: colors.success,
+  },
+  weekPickTeamTextDraw: {
+    color: '#6B7280',
+  },
+  weekPickTeamTextLoss: {
+    color: colors.error,
+  },
+  weekPickNoPick: {
+    fontSize: 12,
+    color: colors.textMuted,
+    fontStyle: 'italic',
+  },
   leaderboardPreview: {
     backgroundColor: colors.surface,
     borderRadius: 16,
@@ -300,8 +405,28 @@ export const createStyles = (colors) => StyleSheet.create({
     borderColor: colors.accent,
     backgroundColor: colors.accent + '10',
   },
+  teamCardUserPick: {
+    borderColor: '#9333EA',
+    backgroundColor: '#9333EA' + '20',
+  },
   teamCardDisabled: {
     opacity: 0.5,
+  },
+  userPickBadge: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
+    backgroundColor: '#9333EA',
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderRadius: 4,
+    zIndex: 5,
+  },
+  userPickBadgeText: {
+    fontSize: 6,
+    fontWeight: '800',
+    color: '#fff',
+    textTransform: 'uppercase',
   },
   teamCardOverlay: {
     position: 'absolute',
@@ -331,22 +456,61 @@ export const createStyles = (colors) => StyleSheet.create({
     position: 'absolute',
     top: 4,
     right: 4,
-    width: 16,
+    minWidth: 24,
     height: 16,
     borderRadius: 8,
-    backgroundColor: colors.warning,
+    backgroundColor: colors.warning + '30',
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  usedCountBadgeMaxed: {
+    backgroundColor: colors.error + '30',
   },
   usedCountText: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '700',
-    color: '#000',
+    color: colors.warning,
+  },
+  usedCountTextMaxed: {
+    color: colors.error,
   },
   selectedIndicator: {
     position: 'absolute',
     top: 8,
     right: 8,
+  },
+  matchStartedBanner: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    overflow: 'hidden',
+    zIndex: 10,
+    borderRadius: 12,
+  },
+  matchStartedRibbon: {
+    position: 'absolute',
+    top: 12,
+    left: -30,
+    width: 100,
+    backgroundColor: colors.error,
+    paddingVertical: 3,
+    transform: [{ rotate: '-45deg' }],
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+  matchStartedText: {
+    fontSize: 8,
+    fontWeight: '800',
+    color: '#fff',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    textAlign: 'center',
   },
   confirmContainer: {
     marginTop: 20,
@@ -357,6 +521,9 @@ export const createStyles = (colors) => StyleSheet.create({
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
+  },
+  confirmButtonEdit: {
+    backgroundColor: colors.warning,
   },
   confirmButtonText: {
     color: colors.textOnAccent,
@@ -388,8 +555,8 @@ export const createStyles = (colors) => StyleSheet.create({
     borderColor: colors.border,
   },
   standingsRowHighlight: {
-    borderColor: colors.accent,
-    backgroundColor: colors.accent + '10',
+    borderColor: '#9333EA',
+    backgroundColor: '#9333EA' + '15',
   },
   standingsRank: {
     width: 32,
@@ -423,7 +590,7 @@ export const createStyles = (colors) => StyleSheet.create({
     color: colors.textPrimary,
   },
   standingsNameHighlight: {
-    color: colors.accent,
+    color: '#9333EA',
   },
   standingsPoints: {
     fontSize: 12,

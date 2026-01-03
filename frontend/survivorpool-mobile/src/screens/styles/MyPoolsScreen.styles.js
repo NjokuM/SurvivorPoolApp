@@ -157,6 +157,8 @@ export const createStyles = (colors) => StyleSheet.create({
   poolStat: {
     flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
   },
   poolStatDivider: {
     width: 1,
@@ -166,18 +168,22 @@ export const createStyles = (colors) => StyleSheet.create({
   livesContainer: {
     flexDirection: 'row',
     gap: 2,
-    marginBottom: 4,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   poolStatValue: {
-    fontSize: 16,
+    fontSize: 11,
     fontWeight: '700',
     color: colors.textPrimary,
-    marginBottom: 2,
+    textAlign: 'center',
   },
   poolStatLabel: {
     fontSize: 11,
     color: colors.textMuted,
     textTransform: 'uppercase',
+    marginTop: 4,
+    textAlign: 'center',
   },
   poolArrow: {
     position: 'absolute',

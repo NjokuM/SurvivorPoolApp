@@ -1,5 +1,6 @@
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, StatusBar, RefreshControl } from 'react-native';
-import { useEffect, useState, useCallback } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, StatusBar, RefreshControl, Animated } from 'react-native';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/colors';
 import apiService from '../api/apiService';
@@ -15,12 +16,25 @@ export default function MyPoolsScreen({ route, navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [user, setUser] = useState(null);
   const [pools, setPools] = useState([]);
+  const spinValue = useRef(new Animated.Value(0)).current;
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (showRefreshIndicator = false) => {
+    if (showRefreshIndicator) {
+      setRefreshing(true);
+      // Start spin animation
+      Animated.loop(
+        Animated.timing(spinValue, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        })
+      ).start();
+    }
+    
     try {
       const [userData, userPools] = await Promise.all([
         apiService.getUser(userId),
-        apiService.getUserPoolsWithDetails(userId), // Use helper that fetches pool details
+        apiService.getUserPoolsWithDetails(userId),
       ]);
       setUser(userData);
       setPools(userPools);
@@ -29,16 +43,26 @@ export default function MyPoolsScreen({ route, navigation }) {
     } finally {
       setLoading(false);
       setRefreshing(false);
+      spinValue.setValue(0);
     }
-  }, [userId]);
+  }, [userId, spinValue]);
 
+  // Initial load
   useEffect(() => {
     loadData();
-  }, [loadData]);
+  }, []);
+
+  // Auto-refresh when screen comes into focus (after making pick, creating/joining pool)
+  useFocusEffect(
+    useCallback(() => {
+      if (!loading) {
+        loadData();
+      }
+    }, [loading])
+  );
 
   const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    loadData();
+    loadData(true);
   }, [loadData]);
 
   const getDeadlineInfo = (pool) => {
@@ -51,7 +75,7 @@ export default function MyPoolsScreen({ route, navigation }) {
     const diff = deadline - now;
     
     if (diff <= 0) {
-      return { text: 'Deadline passed', urgent: true };
+      return { text: 'Games Started', urgent: true };
     }
     
     const hours = Math.floor(diff / (1000 * 60 * 60));
@@ -93,7 +117,7 @@ export default function MyPoolsScreen({ route, navigation }) {
       <View style={styles.header}>
         <View>
           <Text style={styles.greeting}>Welcome back,</Text>
-          <Text style={styles.username}>{user?.username || 'Player'}</Text>
+          <Text style={styles.username}>{user?.firstName || user?.userName || 'Player'}</Text>
         </View>
       </View>
 

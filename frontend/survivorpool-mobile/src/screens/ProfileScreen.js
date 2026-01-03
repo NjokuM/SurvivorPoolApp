@@ -82,7 +82,7 @@ export default function ProfileScreen({ route, navigation }) {
   };
 
   const openEmailWithTemplate = (type) => {
-    const username = user?.username || 'User';
+    const username = user?.firstName || user?.userName || 'User';
     const templates = {
       bug: {
         subject: 'Bug Report - Survivor Pool App',
@@ -277,11 +277,11 @@ Thanks!`,
         <View style={styles.userCard}>
           <View style={styles.avatarLarge}>
             <Text style={styles.avatarLargeText}>
-              {(user?.username || 'U')[0].toUpperCase()}
+              {(user?.firstName || user?.userName || 'U')[0].toUpperCase()}
             </Text>
           </View>
           <View style={styles.userInfo}>
-            <Text style={styles.userName}>{user?.username || 'Player'}</Text>
+            <Text style={styles.userName}>{user?.firstName || user?.userName || 'Player'}</Text>
             <Text style={styles.userEmail}>{user?.email || 'email@example.com'}</Text>
           </View>
           <TouchableOpacity style={styles.editButton}>
