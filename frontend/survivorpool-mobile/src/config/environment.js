@@ -1,6 +1,8 @@
 // Environment Configuration
 // Set via EAS build profiles or fallback to default
 
+import Constants from 'expo-constants';
+
 const ENVIRONMENTS = {
   local: {
     API_BASE_URL: 'http://192.168.1.168:8001',
@@ -25,8 +27,13 @@ const ENVIRONMENTS = {
 // ============================================================
 const DEFAULT_ENV = 'local'; // Fallback for local development
 
-// Read from EAS build environment variable if available
-const CURRENT_ENV = process.env.APP_ENV || DEFAULT_ENV;
+// Read from EAS build environment variable
+// EAS injects env vars into Constants.expoConfig.extra or process.env at build time
+const CURRENT_ENV = 
+  Constants.expoConfig?.extra?.APP_ENV || 
+  process.env.EXPO_PUBLIC_APP_ENV ||
+  process.env.APP_ENV || 
+  DEFAULT_ENV;
 // ============================================================
 
 const config = ENVIRONMENTS[CURRENT_ENV];
