@@ -2,6 +2,7 @@
 // Supports both real API calls and mock data for development
 
 import API from './api';
+import { storeTokens, storeUser, getAccessToken, clearAuth } from '../utils/tokenStorage';
 import {
   MOCK_USERS,
   MOCK_POOLS,
@@ -53,6 +54,12 @@ export const login = async (email, password) => {
   const res = await API.post('/login', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
+  if (res.data.success) {
+    // Persist the access/refresh token pair so the user stays logged in
+    // across app restarts (refresh token lasts the whole season).
+    await storeTokens(res.data.access_token, res.data.refresh_token);
+    await storeUser(res.data.user);
+  }
   return res.data;
 };
 
@@ -81,8 +88,31 @@ export const logout = async () => {
     await mockDelay(300);
     return { message: 'Logged out' };
   }
-  const res = await API.post('/logout');
-  return res.data;
+  try {
+    const res = await API.post('/logout');
+    return res.data;
+  } finally {
+    // Tokens are stateless, so logging out client-side is what actually
+    // ends the session — do this even if the network call fails.
+    await clearAuth();
+  }
+};
+
+// Called once on app launch to silently resume a persisted session.
+// Returns the current user if a stored access/refresh token pair is still
+// valid (the API layer transparently refreshes an expired access token),
+// or null if the user needs to log in again.
+export const restoreSession = async () => {
+  if (USE_MOCK_DATA) return null;
+  const token = await getAccessToken();
+  if (!token) return null;
+  try {
+    const res = await API.get('/me');
+    await storeUser(res.data);
+    return res.data;
+  } catch (error) {
+    return null;
+  }
 };
 
 // ==================== USERS ====================
@@ -588,6 +618,7 @@ export default {
   login,
   signup,
   logout,
+  restoreSession,
   getUser,
   getAllPools,
   getPoolById,
