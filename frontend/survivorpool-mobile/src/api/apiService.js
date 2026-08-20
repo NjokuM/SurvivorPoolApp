@@ -83,6 +83,22 @@ export const signup = async (userData) => {
   return res.data;
 };
 
+// Exchange a Google ID token (from @react-native-google-signin/google-signin)
+// for our own JWT pair. Creates an account on first sign-in, or links to an
+// existing local account that shares the same email.
+export const loginWithGoogle = async (idToken) => {
+  if (USE_MOCK_DATA) {
+    await mockDelay(500);
+    return { success: true, message: 'Logged in successfully', user: { id: 1, email: 'demo@example.com' } };
+  }
+  const res = await API.post('/google', { id_token: idToken });
+  if (res.data.success) {
+    await storeTokens(res.data.access_token, res.data.refresh_token);
+    await storeUser(res.data.user);
+  }
+  return res.data;
+};
+
 export const logout = async () => {
   if (USE_MOCK_DATA) {
     await mockDelay(300);
@@ -639,6 +655,7 @@ export const getHomeScreenData = async (userId, poolId) => {
 export default {
   login,
   signup,
+  loginWithGoogle,
   logout,
   restoreSession,
   changePassword,

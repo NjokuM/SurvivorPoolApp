@@ -7,6 +7,10 @@ node_modules
 .DS_Store
 __pycache__/
 
+# Firebase config (contains project API keys) — not committed
+google-services.json
+GoogleService-Info.plist
+
 *.mmd
 *.mermaid
 
