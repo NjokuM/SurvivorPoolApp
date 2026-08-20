@@ -7,7 +7,7 @@ from jose import JWTError
 from dotenv import load_dotenv
 from app.database import get_db
 from app.models.user import User
-from app.utils.auth import decode_token
+from app.utils.auth import decode_token, token_predates_password_change
 
 load_dotenv()
 
@@ -38,5 +38,8 @@ async def get_current_user(
     user = result.scalars().first()
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
+
+    if token_predates_password_change(payload, user.password_changed_at):
+        raise HTTPException(status_code=401, detail="Session expired, please log in again")
 
     return user

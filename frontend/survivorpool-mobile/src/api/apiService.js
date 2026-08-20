@@ -115,6 +115,28 @@ export const restoreSession = async () => {
   }
 };
 
+// Change the logged-in user's password. On success the backend rotates
+// tokens for this device and invalidates every other device's session.
+export const changePassword = async (currentPassword, newPassword) => {
+  if (USE_MOCK_DATA) {
+    await mockDelay(500);
+    if (currentPassword !== 'password123') {
+      throw new Error('Current password is incorrect');
+    }
+    return { message: 'Password changed successfully' };
+  }
+  try {
+    const res = await API.post('/users/change-password', {
+      current_password: currentPassword,
+      new_password: newPassword,
+    });
+    await storeTokens(res.data.access_token, res.data.refresh_token);
+    return res.data;
+  } catch (error) {
+    throw new Error(getErrorMessage(error));
+  }
+};
+
 // ==================== USERS ====================
 
 export const getUser = async (userId) => {
@@ -619,6 +641,7 @@ export default {
   signup,
   logout,
   restoreSession,
+  changePassword,
   getUser,
   getAllPools,
   getPoolById,

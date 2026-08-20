@@ -24,8 +24,8 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 
 def _create_token(user_id: int, token_type: str, expires_delta: timedelta) -> str:
-    expire = datetime.now(timezone.utc) + expires_delta
-    payload = {"sub": str(user_id), "type": token_type, "exp": expire}
+    now = datetime.now(timezone.utc)
+    payload = {"sub": str(user_id), "type": token_type, "iat": now, "exp": now + expires_delta}
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 
@@ -40,3 +40,16 @@ def create_refresh_token(user_id: int) -> str:
 def decode_token(token: str) -> dict:
     """Decode and verify a JWT, raising jose.JWTError if invalid/expired/tampered."""
     return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+
+
+def token_predates_password_change(payload: dict, password_changed_at) -> bool:
+    """True if a token was issued before the user's most recent password change,
+    which invalidates it (this is how changing a password logs out other devices)."""
+    if not password_changed_at:
+        return False
+    # SQLite (used in tests) drops tzinfo from DateTime(timezone=True) columns
+    # on read; treat a naive value as UTC rather than crash on comparison.
+    if password_changed_at.tzinfo is None:
+        password_changed_at = password_changed_at.replace(tzinfo=timezone.utc)
+    issued_at = datetime.fromtimestamp(payload["iat"], tz=timezone.utc)
+    return issued_at < password_changed_at

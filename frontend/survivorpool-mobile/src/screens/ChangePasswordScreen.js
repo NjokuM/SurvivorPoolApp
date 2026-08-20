@@ -2,10 +2,10 @@ import { View, Text, TextInput, TouchableOpacity, ScrollView, StatusBar, Keyboar
 import { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/colors';
+import apiService from '../api/apiService';
 import { createStyles } from './styles/ChangePasswordScreen.styles';
 
-export default function ChangePasswordScreen({ route, navigation }) {
-  const { userId } = route.params;
+export default function ChangePasswordScreen({ navigation }) {
   const { colors } = useTheme();
   const styles = createStyles(colors);
   
@@ -57,15 +57,8 @@ export default function ChangePasswordScreen({ route, navigation }) {
 
     setSaving(true);
     try {
-      // TODO: Replace with actual API call when backend is ready
-      // await apiService.changePassword(userId, {
-      //   current_password: currentPassword,
-      //   new_password: newPassword,
-      // });
+      await apiService.changePassword(currentPassword, newPassword);
 
-      // Mock success for now
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
       Alert.alert(
         'Success',
         'Your password has been changed successfully!',

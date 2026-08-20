@@ -4,7 +4,7 @@ from sqlalchemy.future import select
 from jose import JWTError
 from app.database import get_db
 from app.models.user import User
-from app.utils.auth import verify_password, create_access_token, create_refresh_token, decode_token
+from app.utils.auth import verify_password, create_access_token, create_refresh_token, decode_token, token_predates_password_change
 from app.dependencies.security import get_current_user
 from app.schemas.user_schema import UserCreate, UserLogin
 from app.crud.user_crud import create_user
@@ -20,9 +20,9 @@ async def signup(
     lastName: str = Form(...),
     db: AsyncSession = Depends(get_db),
 ):
-    
+
     credentials = UserLogin(email=email, password=password)
-    
+
     # Check if email already exists
     result = await db.execute(select(User).filter(User.email == email))
     if result.scalar_one_or_none():
@@ -91,6 +91,9 @@ async def refresh(
     user = result.scalars().first()
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
+
+    if token_predates_password_change(payload, user.password_changed_at):
+        raise HTTPException(status_code=401, detail="Session expired, please log in again")
 
     # Rotate both tokens on refresh.
     return {
