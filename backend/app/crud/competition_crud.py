@@ -12,7 +12,18 @@ async def store_team_in_db(db: AsyncSession, team: TeamCreate) -> Team:
     existing_team = result.scalar_one_or_none()
 
     if existing_team:
-        return existing_team  # Avoid duplicates
+        # Teams aren't duplicated per season, but a returning team needs to
+        # be repointed at the current season's Competition row (promotion/
+        # relegation, or just the league rolling over) so it shows up in
+        # "teams in this competition" queries. Historical fixtures are
+        # unaffected - they reference Team.id directly, not competition_id.
+        if existing_team.competition_id != team.competition_id:
+            existing_team.competition_id = team.competition_id
+            existing_team.updated_at = datetime.utcnow()
+            db.add(existing_team)
+            await db.commit()
+            await db.refresh(existing_team)
+        return existing_team
 
     # Create new team record
     new_team = Team(
@@ -32,7 +43,15 @@ async def store_team_in_db(db: AsyncSession, team: TeamCreate) -> Team:
     return new_team
 
 async def store_league_in_db(db: AsyncSession, league: LeagueCreate) -> Competition:
-    result = await db.execute(select(Competition).where(Competition.external_id==league.external_id))
+    # A league gets one row per season now, so identity is (external_id,
+    # season) - not external_id alone. Re-syncing the same season is a no-op;
+    # a new season creates a new row (handled by the caller falling through).
+    result = await db.execute(
+        select(Competition).where(
+            Competition.external_id == league.external_id,
+            Competition.season == league.season,
+        )
+    )
     existing_league = result.scalar_one_or_none()
 
     if existing_league:

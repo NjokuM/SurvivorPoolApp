@@ -6,14 +6,22 @@ class Competition(Base):
     __tablename__ = "competitions"
 
     id = Column(Integer, primary_key=True, index=True)
-    external_id = Column(Integer,unique=True,nullable=False)
-    name = Column(String, unique=True, nullable=False)
+    # external_id identifies the league (e.g. Premier League), not a single
+    # season of it - each season gets its own row so historical fixtures stay
+    # correctly tied to the season they actually happened in. Uniqueness is
+    # therefore per (external_id, season), not on either column alone.
+    external_id = Column(Integer, nullable=False, index=True)
+    name = Column(String, nullable=False)
     season=Column(Integer)
     country = Column(String)
     type = Column(String)
     logo = Column(String)
     created_at = Column(DateTime)
     updated_at = Column(DateTime)
+
+    __table_args__ = (
+        UniqueConstraint("external_id", "season", name="uq_competition_external_season"),
+    )
 
     teams = relationship("Team", back_populates="competition")
 
