@@ -7,14 +7,11 @@ from app.routers import admin_routes
 from app.routers import external_football_router
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
-from starlette.middleware.sessions import SessionMiddleware
 from dotenv import load_dotenv
-import os
 
-SECRET_KEY=os.getenv("SECRET_KEY")
+load_dotenv()
 
 app=FastAPI()
-app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
 app.include_router(user_router.router)
 app.include_router(auth_router.router)
 app.include_router(competition_router.router)

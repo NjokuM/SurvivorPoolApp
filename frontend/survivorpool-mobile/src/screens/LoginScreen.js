@@ -1,6 +1,7 @@
 import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, StatusBar, KeyboardAvoidingView, Platform } from 'react-native';
 import { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
+import { GoogleSignin, isSuccessResponse, isErrorWithCode, statusCodes } from '@react-native-google-signin/google-signin';
 import { useTheme } from '../theme/colors';
 import apiService from '../api/apiService';
 import { createStyles } from './styles/LoginScreen.styles';
@@ -9,8 +10,16 @@ export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [emailFocused, setEmailFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
+
+  const goToMain = (userId) => {
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'Main', params: { userId } }],
+    });
+  };
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -26,10 +35,7 @@ export default function LoginScreen({ navigation }) {
       console.log("Response:", response);
 
       if (response.success) {
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'Main', params: { userId: response.user.id } }],
-        });
+        goToMain(response.user.id);
       } else {
         alert(response.message || "Invalid credentials");
       }
@@ -38,6 +44,33 @@ export default function LoginScreen({ navigation }) {
       alert("Login failed. Please try again.");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setIsGoogleLoading(true);
+    try {
+      await GoogleSignin.hasPlayServices();
+      const response = await GoogleSignin.signIn();
+
+      if (!isSuccessResponse(response)) {
+        // User cancelled the flow.
+        return;
+      }
+
+      const result = await apiService.loginWithGoogle(response.data.idToken);
+      if (result.success) {
+        goToMain(result.user.id);
+      } else {
+        alert(result.message || 'Google sign-in failed');
+      }
+    } catch (error) {
+      if (!isErrorWithCode(error) || error.code !== statusCodes.SIGN_IN_CANCELLED) {
+        console.error('Google sign-in error:', error);
+        alert('Google sign-in failed. Please try again.');
+      }
+    } finally {
+      setIsGoogleLoading(false);
     }
   };
 
@@ -121,6 +154,28 @@ export default function LoginScreen({ navigation }) {
                     </View>
                   ) : (
                     <Text style={styles.buttonText}>Sign In</Text>
+                  )}
+                </TouchableOpacity>
+
+                <View style={styles.dividerRow}>
+                  <View style={styles.dividerLine} />
+                  <Text style={styles.dividerText}>or</Text>
+                  <View style={styles.dividerLine} />
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.googleButton, isGoogleLoading && styles.googleButtonDisabled]}
+                  onPress={handleGoogleSignIn}
+                  disabled={isGoogleLoading}
+                  activeOpacity={0.8}
+                >
+                  {isGoogleLoading ? (
+                    <ActivityIndicator color={colors.textPrimary} />
+                  ) : (
+                    <>
+                      <Ionicons name="logo-google" size={18} color={colors.textPrimary} />
+                      <Text style={styles.googleButtonText}>Continue with Google</Text>
+                    </>
                   )}
                 </TouchableOpacity>
               </View>

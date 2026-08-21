@@ -1,11 +1,15 @@
-from fastapi import APIRouter, Depends, Request, Form, HTTPException
+from fastapi import APIRouter, Depends, Form, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from jose import JWTError
+from google.auth.exceptions import GoogleAuthError
 from app.database import get_db
 from app.models.user import User
-from app.utils.auth import verify_password
-from app.schemas.user_schema import UserCreate, UserLogin
-from app.crud.user_crud import create_user
+from app.utils.auth import verify_password, create_access_token, create_refresh_token, decode_token, token_predates_password_change
+from app.utils.google_auth import verify_google_id_token
+from app.dependencies.security import get_current_user
+from app.schemas.user_schema import UserCreate, UserLogin, GoogleAuthRequest
+from app.crud.user_crud import create_user, generate_unique_username
 
 router = APIRouter(tags=["Auth"])
 
@@ -18,9 +22,9 @@ async def signup(
     lastName: str = Form(...),
     db: AsyncSession = Depends(get_db),
 ):
-    
+
     credentials = UserLogin(email=email, password=password)
-    
+
     # Check if email already exists
     result = await db.execute(select(User).filter(User.email == email))
     if result.scalar_one_or_none():
@@ -46,7 +50,6 @@ async def signup(
 
 @router.post("/login")
 async def login(
-    request: Request,
     email: str = Form(...),
     password: str = Form(...),
     db: AsyncSession = Depends(get_db)
@@ -55,26 +58,101 @@ async def login(
     result = await db.execute(select(User).where(User.email == email))
     user = result.scalars().first()
 
-    # Check if user exists and password matches
-    if not user or not verify_password(password, user.password):
+    # Check if user exists and password matches (Google-only accounts have
+    # no local password, so they can't log in this way).
+    if not user or not user.password or not verify_password(password, user.password):
         return {"success": False, "message": "Invalid credentials"}
 
-    # Store session
-    request.session["user_id"] = user.id
-    return {"success": True, "message": "Logged in successfully", "user": {"id": user.id, "email": user.email}}
+    # Issue a short-lived access token plus a season-long refresh token so
+    # the app can keep users signed in without re-prompting for credentials.
+    return {
+        "success": True,
+        "message": "Logged in successfully",
+        "access_token": create_access_token(user.id),
+        "refresh_token": create_refresh_token(user.id),
+        "user": {"id": user.id, "email": user.email},
+    }
 
-@router.get("/me")
-async def get_me(request: Request, db: AsyncSession = Depends(get_db)):
-    user_id = request.session.get("user_id")
-    if not user_id:
-        return {"error": "Not logged in"}
+@router.post("/google")
+async def google_login(
+    body: GoogleAuthRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        claims = verify_google_id_token(body.id_token)
+    except (ValueError, GoogleAuthError):
+        raise HTTPException(status_code=401, detail="Invalid Google token")
 
-    result = await db.execute(select(User).where(User.id == user_id))
+    if not claims.get("email_verified"):
+        raise HTTPException(status_code=401, detail="Google email is not verified")
+
+    google_id = claims["sub"]
+    email = claims["email"]
+
+    result = await db.execute(select(User).where(User.google_id == google_id))
     user = result.scalars().first()
 
-    return {"id": user.id, "email": user.email}
+    if not user:
+        result = await db.execute(select(User).where(User.email == email))
+        user = result.scalars().first()
+        if user:
+            # Existing local account signing in with Google for the first time.
+            user.google_id = google_id
+        else:
+            username = await generate_unique_username(email, db)
+            user = User(
+                userName=username,
+                email=email,
+                password=None,
+                firstName=claims.get("given_name") or username,
+                lastName=claims.get("family_name") or "",
+                google_id=google_id,
+            )
+            db.add(user)
+        await db.commit()
+        await db.refresh(user)
+
+    return {
+        "success": True,
+        "message": "Logged in successfully",
+        "access_token": create_access_token(user.id),
+        "refresh_token": create_refresh_token(user.id),
+        "user": {"id": user.id, "email": user.email},
+    }
+
+@router.get("/me")
+async def get_me(current_user: User = Depends(get_current_user)):
+    return {"id": current_user.id, "email": current_user.email}
+
+@router.post("/refresh")
+async def refresh(
+    refresh_token: str = Form(...),
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        payload = decode_token(refresh_token)
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    if payload.get("type") != "refresh":
+        raise HTTPException(status_code=401, detail="Invalid token type")
+
+    result = await db.execute(select(User).where(User.id == int(payload["sub"])))
+    user = result.scalars().first()
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+
+    if token_predates_password_change(payload, user.password_changed_at):
+        raise HTTPException(status_code=401, detail="Session expired, please log in again")
+
+    # Rotate both tokens on refresh.
+    return {
+        "access_token": create_access_token(user.id),
+        "refresh_token": create_refresh_token(user.id),
+    }
 
 @router.post("/logout")
-async def logout(request: Request):
-    request.session.clear()
+async def logout():
+    # Tokens are stateless JWTs, so logging out is just the client discarding
+    # them locally. This endpoint exists for a consistent API contract.
     return {"message": "Logged out"}
