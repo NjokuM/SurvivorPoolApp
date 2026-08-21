@@ -4,8 +4,8 @@ from typing import Dict, Tuple, List, Iterable
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.models.competiton_data import Fixture
-from app.models.pick import Pick
-from app.models.pool import PoolUserStats
+from app.models.pick import Pick, PickResultEnum
+from app.models.pool import Pool, PoolUserStats
 
 POINTS_FOR_WIN = 3
 POINTS_FOR_DRAW = 1
@@ -35,16 +35,47 @@ def _compute_pick_result_and_points(pick_team_id: int, fixture: Fixture) -> Tupl
 # ------------------------------------------------------------
 # 2. DATA FETCH HELPERS
 # ------------------------------------------------------------
-async def _load_finished_fixtures(db: AsyncSession, competition_id: int, gameweek: int) -> List[Fixture]:
-    """Load all finished fixtures for a competition + gameweek."""
+async def _load_gameweek_fixtures(db: AsyncSession, competition_id: int, gameweek: int) -> List[Fixture]:
+    """Load every fixture for a competition + gameweek, regardless of status."""
     res = await db.execute(
         select(Fixture).where(
             Fixture.competition_id == competition_id,
             Fixture.gameweek == gameweek,
-            Fixture.status == "FT"
         )
     )
     return res.scalars().all()
+
+
+async def _load_active_pools(db: AsyncSession, competition_id: int) -> List[Pool]:
+    """Load active pools for a competition (missed-pick penalties don't apply to deleted pools)."""
+    res = await db.execute(
+        select(Pool).where(
+            Pool.competition_id == competition_id,
+            Pool.is_active == True,
+        )
+    )
+    return res.scalars().all()
+
+
+async def _load_pool_user_stats(db: AsyncSession, pool_id: int) -> List[PoolUserStats]:
+    """Load every member's stats row for a pool."""
+    res = await db.execute(select(PoolUserStats).where(PoolUserStats.pool_id == pool_id))
+    return res.scalars().all()
+
+
+async def _users_with_a_pick(db: AsyncSession, pool_id: int, fixture_ids: Iterable[int]) -> set:
+    """User ids in this pool who already have a Pick (any result, including a
+    prior NP record) tied to one of these fixtures - i.e. who aren't missing."""
+    fixture_ids = list(fixture_ids)
+    if not fixture_ids:
+        return set()
+    res = await db.execute(
+        select(Pick.user_id).where(
+            Pick.pool_id == pool_id,
+            Pick.fixture_id.in_(fixture_ids),
+        )
+    )
+    return {row[0] for row in res.all()}
 
 
 async def _load_unprocessed_picks(db: AsyncSession, fixture_ids: Iterable[int]) -> List[Pick]:
@@ -119,6 +150,61 @@ def _evaluate_picks(picks: List[Pick], fixtures_by_id: Dict[int, Fixture]) -> Di
 
 
 # ------------------------------------------------------------
+# 3b. MISSED PICK DETECTION
+# ------------------------------------------------------------
+async def _detect_missed_picks(
+    db: AsyncSession,
+    competition_id: int,
+    gameweek: int,
+    gameweek_fixtures: List[Fixture],
+) -> Dict:
+    """
+    Find pool members who never submitted a pick for this gameweek and
+    create an NP ("No Pick") record for each - which both penalizes them
+    (one life, same as a loss) and makes future runs idempotent, since the
+    NP record itself counts as "has a pick" on the next pass.
+
+    Returns an accum dict in the same shape _evaluate_picks produces, so
+    _apply_stats_updates can handle real losses and missed picks uniformly.
+    """
+    accum = {}
+    fixture_ids = [f.id for f in gameweek_fixtures]
+    # Attach the NP record to the gameweek's last kickoff - the whole round
+    # has to be over before we can safely conclude someone missed their pick.
+    representative_fixture = max(gameweek_fixtures, key=lambda f: f.kickoff_time)
+
+    pools = await _load_active_pools(db, competition_id)
+    for pool in pools:
+        if pool.start_gameweek > gameweek:
+            continue  # pool didn't exist yet for this gameweek
+
+        already_picked = await _users_with_a_pick(db, pool.id, fixture_ids)
+        stats_list = await _load_pool_user_stats(db, pool.id)
+
+        for stats in stats_list:
+            if stats.user_id in already_picked:
+                continue
+            if stats.lives_left <= 0:
+                continue  # already eliminated - nothing left to penalize
+
+            db.add(Pick(
+                pool_id=pool.id,
+                user_id=stats.user_id,
+                team_id=None,
+                fixture_id=representative_fixture.id,
+                competition_id=competition_id,
+                result=PickResultEnum.NP,
+                points=0,
+            ))
+
+            key = (pool.id, stats.user_id)
+            bucket = accum.setdefault(key, {"points": 0, "losses": 0})
+            bucket["losses"] += 1
+
+    return accum
+
+
+# ------------------------------------------------------------
 # 4. APPLY DATABASE UPDATES
 # ------------------------------------------------------------
 async def _apply_stats_updates(
@@ -176,30 +262,43 @@ async def process_gameweek_results(
 ) -> Dict[str, int]:
     """
     Clean, readable and fully idempotent results processor.
+
+    Only finalizes a gameweek - including penalizing missed picks - once
+    every fixture in it has reached a finished status. Processing a gameweek
+    that's still partway through would risk penalizing someone before the
+    round is actually over.
     """
     summary = {"picks_processed": 0, "points_awarded": 0, "lives_deducted": 0}
 
-    fixtures = await _load_finished_fixtures(db, competition_id, gameweek)
-    if not fixtures:
+    gameweek_fixtures = await _load_gameweek_fixtures(db, competition_id, gameweek)
+    if not gameweek_fixtures:
         return summary
 
-    fixtures_by_id = {f.id: f for f in fixtures}
+    if not all(f.status == "FT" for f in gameweek_fixtures):
+        return summary
 
+    fixtures_by_id = {f.id: f for f in gameweek_fixtures}
+
+    # Compute results for picks that were actually submitted
     picks = await _load_unprocessed_picks(db, fixtures_by_id.keys())
-    if not picks:
-        return summary
-
-    # Compute results for all picks
     res = _evaluate_picks(picks, fixtures_by_id)
     summary["picks_processed"] = res["picks_processed"]
     summary["points_awarded"] = res["total_points"]
+    accum = res["accum"]
+
+    # Fold in anyone who never picked at all
+    missed_accum = await _detect_missed_picks(db, competition_id, gameweek, gameweek_fixtures)
+    for key, data in missed_accum.items():
+        bucket = accum.setdefault(key, {"points": 0, "losses": 0})
+        bucket["points"] += data["points"]
+        bucket["losses"] += data["losses"]
 
     # Apply writes atomically
-    await db.flush()  # update picks
+    await db.flush()  # persist pick updates + new NP records
     summary["lives_deducted"] = await _apply_stats_updates(
         db=db,
         gameweek=gameweek,
-        accum=res["accum"],
+        accum=accum,
         allow_eliminated_to_play=allow_eliminated_to_play,
         apply_decrements_for_eliminated=apply_decrements_for_eliminated
     )
