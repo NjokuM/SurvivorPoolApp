@@ -5,10 +5,12 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { AppProvider } from './src/context/AppContext';
 import { ThemeProvider, useTheme } from './src/theme/colors';
 import apiService from './src/api/apiService';
 import { authEvents } from './src/api/api';
+import { GOOGLE_WEB_CLIENT_ID } from './src/config/google';
 import LoginScreen from './src/screens/LoginScreen';
 import SignupScreen from './src/screens/SignupScreen';
 import MyPoolsScreen from './src/screens/MyPoolsScreen';
@@ -21,6 +23,8 @@ import ChangePasswordScreen from './src/screens/ChangePasswordScreen';
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 const navigationRef = createNavigationContainerRef();
+
+GoogleSignin.configure({ webClientId: GOOGLE_WEB_CLIENT_ID });
 
 // If a refresh attempt fails (refresh token expired/invalid), bounce the
 // user back to Login from wherever they are in the app.

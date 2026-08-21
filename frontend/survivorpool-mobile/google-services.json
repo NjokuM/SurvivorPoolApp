@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "225208963602",
+    "project_id": "survivorpoolapp",
+    "storage_bucket": "survivorpoolapp.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:225208963602:android:169dd932a55ed821e6fecb",
+        "android_client_info": {
+          "package_name": "com.njokum.survivorpoolmobile"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "225208963602-tt5smv8m665vlr5j08uf2auud8h1mi1c.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.njokum.survivorpoolmobile",
+            "certificate_hash": "09fe31fec301cc781f69492ca08078d817945f16"
+          }
+        },
+        {
+          "client_id": "225208963602-i9fgjukio4ue22ffjjmr910k70cbfarm.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDE6wg5ivKpRKt5QS0TJxFYbmw7LxyVkJk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "225208963602-i9fgjukio4ue22ffjjmr910k70cbfarm.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "225208963602-2v6tf929g8a8pbg18aorenj0g4u1b06j.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.njokum.survivorpoolmobile"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

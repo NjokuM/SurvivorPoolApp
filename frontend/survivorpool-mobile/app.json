@@ -15,6 +15,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.njokum.survivorpoolmobile",
       "buildNumber": "2",
+      "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -25,11 +26,15 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.njokum.survivorpoolmobile"
+      "package": "com.njokum.survivorpoolmobile",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
+    "plugins": [
+      "@react-native-google-signin/google-signin"
+    ],
     "extra": {
       "eas": {
         "projectId": "54b0b64e-cc2b-4cbb-b5d1-a459d2e13c3e"
