@@ -1,7 +1,7 @@
 """add password_changed_at to users
 
 Revision ID: 8f2c4a6d9b31
-Revises: 45d778dcae94
+Revises: 3413b6216b8c
 Create Date: 2026-08-17 00:00:00.000000
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = '8f2c4a6d9b31'
-down_revision: Union[str, Sequence[str], None] = '45d778dcae94'
+down_revision: Union[str, Sequence[str], None] = '3413b6216b8c'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
