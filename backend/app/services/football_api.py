@@ -66,8 +66,14 @@ async def store_league_from_api(db: AsyncSession, filters: LeagueFilters):
             logo=league["league"]["logo"],
         )
 
-        # ✅ Check if league already exists
-        result = await db.execute(select(Competition).where(Competition.external_id == league_data.external_id))
+        # ✅ Check if this league+season already exists (a new season for an
+        # already-known league is not a duplicate - it gets its own row)
+        result = await db.execute(
+            select(Competition).where(
+                Competition.external_id == league_data.external_id,
+                Competition.season == league_data.season,
+            )
+        )
         existing_league = result.scalar_one_or_none()
 
         if existing_league:
@@ -115,9 +121,13 @@ async def store_teams_from_api(db: AsyncSession, filters: TeamFilters):
     # 1️⃣ The league ID is provided in the filters
     external_league_id = filters.league
 
-    # 2️⃣ Get internal competition ID from DB
+    # 2️⃣ Get internal competition ID from DB (scoped to this season - a
+    # league now has one row per season, so external_id alone isn't unique)
     result = await db.execute(
-        select(Competition).where(Competition.external_id == external_league_id)
+        select(Competition).where(
+            Competition.external_id == external_league_id,
+            Competition.season == filters.season,
+        )
     )
     competition = result.scalar_one_or_none()
 
@@ -188,7 +198,12 @@ async def store_fixtures_from_api(db: AsyncSession, filters: FixtureFilters):
 
     for fixture in api_response["response"]:
         # --- Competition FK ---
-        result = await db.execute(select(Competition).where(Competition.external_id == fixture["league"]["id"]))
+        result = await db.execute(
+            select(Competition).where(
+                Competition.external_id == fixture["league"]["id"],
+                Competition.season == filters.season,
+            )
+        )
         competition = result.scalar_one_or_none()
         if not competition:
             skipped += 1
@@ -251,7 +266,12 @@ async def update_fixtures_from_api(db: AsyncSession, filters: FixtureFilters):
 
     for fixture in api_response["response"]:
         # --- Match Competition ---
-        result = await db.execute(select(Competition).where(Competition.external_id == fixture["league"]["id"]))
+        result = await db.execute(
+            select(Competition).where(
+                Competition.external_id == fixture["league"]["id"],
+                Competition.season == filters.season,
+            )
+        )
         competition = result.scalar_one_or_none()
         if not competition:
             skipped += 1
@@ -316,7 +336,12 @@ async def update_fixtures_by_league_id(db: AsyncSession, league_id: int, season:
 
     for fixture in api_response["response"]:
         # --- Match Competition ---
-        result = await db.execute(select(Competition).where(Competition.external_id == fixture["league"]["id"]))
+        result = await db.execute(
+            select(Competition).where(
+                Competition.external_id == fixture["league"]["id"],
+                Competition.season == filters.season,
+            )
+        )
         competition = result.scalar_one_or_none()
         if not competition:
             skipped += 1
