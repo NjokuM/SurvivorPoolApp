@@ -5,7 +5,13 @@ from datetime import datetime
 class LeagueFilters(BaseModel):
     id : Optional[int] = Field(None)
     name : Optional[str] = Field(None)
-    season : int = Field(2026, description="Defaults to current season")
+    # Optional and unfiltered by default: GET /competitions/leagues uses this
+    # same schema to list DB rows, and a competition now spans multiple
+    # season rows per league - a hardcoded default season here would silently
+    # hide every other season's data from that endpoint (as happened before
+    # this was made Optional). Pass season explicitly when calling the sync
+    # endpoint for a specific season.
+    season : Optional[int] = Field(None, description="Filter to a specific season; omit for all seasons")
     country : Optional[str] = Field(None)
     type : Optional[str] = Field(None) # Type of competition (League or Cup)
 
