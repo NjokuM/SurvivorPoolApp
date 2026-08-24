@@ -33,7 +33,7 @@ class Team(Base):
     name = Column(String, nullable=False)
     short_name = Column(String)
     competition_id = Column(Integer, ForeignKey("competitions.id"), nullable=False)
-    venue_name = Column(String, nullable=False)
+    venue_name = Column(String)  # not always present for smaller/lower-tier clubs in the API
     logo = Column(String)
     created_at = Column(DateTime)
     updated_at = Column(DateTime)

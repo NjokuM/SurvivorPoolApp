@@ -140,14 +140,15 @@ async def store_teams_from_api(db: AsyncSession, filters: TeamFilters):
     for entry in api_response["response"]:
 
         team = entry["team"]
-        venue = entry["venue"]
+        # Smaller/lower-tier clubs don't always have venue data in the API.
+        venue = entry.get("venue") or {}
 
         team_data = TeamCreate(
             external_id=team["id"],
             name=team["name"],
             short_name=team["code"],
-            venue_name=venue["name"],
-            venue_id=venue["id"],
+            venue_name=venue.get("name"),
+            venue_id=venue.get("id"),
             logo=team["logo"],
             competition_id=competition_id,
         )
