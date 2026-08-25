@@ -1,6 +1,7 @@
 # app/services/results_processor.py
 
 from typing import Dict, Tuple, List, Iterable
+from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.models.competiton_data import Fixture
@@ -61,6 +62,15 @@ async def _load_pool_user_stats(db: AsyncSession, pool_id: int) -> List[PoolUser
     """Load every member's stats row for a pool."""
     res = await db.execute(select(PoolUserStats).where(PoolUserStats.pool_id == pool_id))
     return res.scalars().all()
+
+
+async def _load_pools_by_ids(db: AsyncSession, pool_ids: Iterable[int]) -> Dict[int, Pool]:
+    """Load pools keyed by id, so callers can check has_lives without a query per row."""
+    pool_ids = list(pool_ids)
+    if not pool_ids:
+        return {}
+    res = await db.execute(select(Pool).where(Pool.id.in_(pool_ids)))
+    return {p.id: p for p in res.scalars().all()}
 
 
 async def _users_with_a_pick(db: AsyncSession, pool_id: int, fixture_ids: Iterable[int]) -> set:
@@ -169,8 +179,9 @@ async def _detect_missed_picks(
     """
     accum = {}
     fixture_ids = [f.id for f in gameweek_fixtures]
-    # Attach the NP record to the gameweek's last kickoff - the whole round
-    # has to be over before we can safely conclude someone missed their pick.
+    # Attach the NP record to the gameweek's last kickoff - callers only
+    # invoke this once that kickoff has passed, since a user can pick any
+    # not-yet-started fixture in the gameweek right up until then.
     representative_fixture = max(gameweek_fixtures, key=lambda f: f.kickoff_time)
 
     pools = await _load_active_pools(db, competition_id)
@@ -216,6 +227,7 @@ async def _apply_stats_updates(
 ):
     """Apply aggregated stats (points + life deductions) to PoolUserStats."""
     lives_deducted = 0
+    pools_by_id = await _load_pools_by_ids(db, (pool_id for pool_id, _ in accum.keys()))
 
     for (pool_id, user_id), data in accum.items():
         stats = await _load_pool_stats(db, pool_id, user_id)
@@ -224,6 +236,12 @@ async def _apply_stats_updates(
 
         # Add points
         stats.total_points = (stats.total_points or 0) + data["points"]
+
+        pool = pools_by_id.get(pool_id)
+        if pool is not None and not pool.has_lives:
+            # League mode: points only, no elimination - a loss or missed
+            # pick still costs the points, but never touches lives_left.
+            continue
 
         # Handle lives
         losses = data["losses"]
@@ -263,18 +281,18 @@ async def process_gameweek_results(
     """
     Clean, readable and fully idempotent results processor.
 
-    Only finalizes a gameweek - including penalizing missed picks - once
-    every fixture in it has reached a finished status. Processing a gameweek
-    that's still partway through would risk penalizing someone before the
-    round is actually over.
+    A pick can be for any fixture in the gameweek that hasn't kicked off yet
+    (not just the first one), so the two halves of this run on different
+    clocks:
+    - Point crediting scores each submitted pick independently, as soon as
+      its own fixture is FT - no need to wait for the rest of the gameweek.
+    - Missed-pick detection only runs once the gameweek's *last* fixture has
+      kicked off, since only then is it certain no more picks can arrive.
     """
     summary = {"picks_processed": 0, "points_awarded": 0, "lives_deducted": 0}
 
     gameweek_fixtures = await _load_gameweek_fixtures(db, competition_id, gameweek)
     if not gameweek_fixtures:
-        return summary
-
-    if not all(f.status == "FT" for f in gameweek_fixtures):
         return summary
 
     fixtures_by_id = {f.id: f for f in gameweek_fixtures}
@@ -286,12 +304,18 @@ async def process_gameweek_results(
     summary["points_awarded"] = res["total_points"]
     accum = res["accum"]
 
-    # Fold in anyone who never picked at all
-    missed_accum = await _detect_missed_picks(db, competition_id, gameweek, gameweek_fixtures)
-    for key, data in missed_accum.items():
-        bucket = accum.setdefault(key, {"points": 0, "losses": 0})
-        bucket["points"] += data["points"]
-        bucket["losses"] += data["losses"]
+    # Fold in anyone who never picked at all - but only once the picking
+    # window has definitively closed.
+    last_kickoff = max(f.kickoff_time for f in gameweek_fixtures)
+    if datetime.now(timezone.utc) >= last_kickoff:
+        missed_accum = await _detect_missed_picks(db, competition_id, gameweek, gameweek_fixtures)
+        for key, data in missed_accum.items():
+            bucket = accum.setdefault(key, {"points": 0, "losses": 0})
+            bucket["points"] += data["points"]
+            bucket["losses"] += data["losses"]
+
+    if not accum:
+        return summary
 
     # Apply writes atomically
     await db.flush()  # persist pick updates + new NP records
