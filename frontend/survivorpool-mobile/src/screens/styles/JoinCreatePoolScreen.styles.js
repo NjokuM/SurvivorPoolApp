@@ -49,6 +49,19 @@ export const createStyles = (colors) => StyleSheet.create({
   tabOptionTextActive: {
     color: colors.textOnAccent,
   },
+  modeToggleRow: {
+    flexDirection: 'row',
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  modeHint: {
+    fontSize: 12,
+    color: colors.textMuted,
+    marginTop: 8,
+  },
   content: {
     flex: 1,
   },
