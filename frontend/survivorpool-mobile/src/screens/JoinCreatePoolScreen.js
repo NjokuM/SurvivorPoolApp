@@ -1,4 +1,4 @@
-import { View, Text, TextInput, TouchableOpacity, ScrollView, StatusBar, KeyboardAvoidingView, Platform, Modal, FlatList, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, StatusBar, KeyboardAvoidingView, Platform, Modal, FlatList, ActivityIndicator, Image } from 'react-native';
 import { useState, useMemo, useEffect } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
@@ -30,31 +30,23 @@ export default function JoinCreatePoolScreen({ route, navigation }) {
   const [leagues, setLeagues] = useState([]);
   const [leaguesLoading, setLeaguesLoading] = useState(true);
 
-  // Country flag mapping for leagues
-  const countryFlags = {
-    'England': '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
-    'Spain': '🇪🇸',
-    'Germany': '🇩🇪',
-    'Italy': '🇮🇹',
-    'France': '🇫🇷',
-    'Netherlands': '🇳🇱',
-    'Portugal': '🇵🇹',
-    'Scotland': '🏴󠁧󠁢󠁳󠁣󠁴󠁿',
-    'Belgium': '🇧🇪',
-    'Turkey': '🇹🇷',
-  };
-
   // Fetch leagues from API on mount
   useEffect(() => {
     const fetchLeagues = async () => {
       try {
         const data = await apiService.getCompetitions();
-        // Transform to include icon based on country
-        const leaguesWithIcons = data.map(league => ({
-          ...league,
-          icon: countryFlags[league.country] || '⚽',
-        }));
-        setLeagues(leaguesWithIcons);
+        // The backend now keeps one row per (league, season) so history stays
+        // intact, but pool creation should only ever offer the current
+        // season - keep the newest row per league rather than hardcoding a
+        // season number that would just go stale again next year.
+        const latestSeasonByLeague = new Map();
+        for (const league of data) {
+          const existing = latestSeasonByLeague.get(league.external_id);
+          if (!existing || league.season > existing.season) {
+            latestSeasonByLeague.set(league.external_id, league);
+          }
+        }
+        setLeagues(Array.from(latestSeasonByLeague.values()));
       } catch (error) {
         console.error('Error fetching leagues:', error);
         // Fallback to empty array if API fails
@@ -301,7 +293,11 @@ export default function JoinCreatePoolScreen({ route, navigation }) {
                 >
                   {selectedLeague ? (
                     <View style={styles.leagueSelectorContent}>
-                      <Text style={styles.leagueSelectorIcon}>{selectedLeague.icon}</Text>
+                      {selectedLeague.logo ? (
+                        <Image source={{ uri: selectedLeague.logo }} style={styles.leagueSelectorIcon} resizeMode="contain" />
+                      ) : (
+                        <Ionicons name="football" size={24} color={colors.textMuted} style={styles.leagueSelectorIconFallback} />
+                      )}
                       <View style={styles.leagueSelectorText}>
                         <Text style={styles.leagueSelectorName}>{selectedLeague.name}</Text>
                         <Text style={styles.leagueSelectorCountry}>{selectedLeague.country}</Text>
@@ -516,7 +512,11 @@ export default function JoinCreatePoolScreen({ route, navigation }) {
                       setLeagueSearch('');
                     }}
                   >
-                    <Text style={styles.leagueListIcon}>{item.icon}</Text>
+                    {item.logo ? (
+                      <Image source={{ uri: item.logo }} style={styles.leagueListIcon} resizeMode="contain" />
+                    ) : (
+                      <Ionicons name="football" size={28} color={colors.textMuted} style={styles.leagueListIconFallback} />
+                    )}
                     <View style={styles.leagueListText}>
                       <Text style={styles.leagueListName}>{item.name}</Text>
                       <Text style={styles.leagueListCountry}>{item.country}</Text>
