@@ -172,6 +172,13 @@ export const createStyles = (colors) => StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
   },
+  appleButton: {
+    width: '100%',
+    height: 50,
+  },
+  appleButtonSpacing: {
+    marginTop: 12,
+  },
   cardFooter: {
     marginTop: 28,
     alignItems: 'center',

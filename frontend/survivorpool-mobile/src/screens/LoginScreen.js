@@ -2,6 +2,7 @@ import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator,
 import { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { GoogleSignin, isSuccessResponse, isErrorWithCode, statusCodes } from '@react-native-google-signin/google-signin';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { useTheme } from '../theme/colors';
 import apiService from '../api/apiService';
 import { createStyles } from './styles/LoginScreen.styles';
@@ -11,6 +12,7 @@ export default function LoginScreen({ navigation }) {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isAppleLoading, setIsAppleLoading] = useState(false);
   const [emailFocused, setEmailFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
 
@@ -71,6 +73,37 @@ export default function LoginScreen({ navigation }) {
       }
     } finally {
       setIsGoogleLoading(false);
+    }
+  };
+
+  const handleAppleSignIn = async () => {
+    setIsAppleLoading(true);
+    try {
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      const result = await apiService.loginWithApple(
+        credential.identityToken,
+        credential.email,
+        credential.fullName?.givenName,
+        credential.fullName?.familyName
+      );
+      if (result.success) {
+        goToMain(result.user.id);
+      } else {
+        alert(result.message || 'Apple sign-in failed');
+      }
+    } catch (error) {
+      if (error.code !== 'ERR_REQUEST_CANCELED') {
+        console.error('Apple sign-in error:', error);
+        alert('Apple sign-in failed. Please try again.');
+      }
+    } finally {
+      setIsAppleLoading(false);
     }
   };
 
@@ -178,6 +211,24 @@ export default function LoginScreen({ navigation }) {
                     </>
                   )}
                 </TouchableOpacity>
+
+                {Platform.OS === 'ios' && (
+                  isAppleLoading ? (
+                    <View style={[styles.googleButton, styles.appleButtonSpacing]}>
+                      <ActivityIndicator color={colors.textPrimary} />
+                    </View>
+                  ) : (
+                    <AppleAuthentication.AppleAuthenticationButton
+                      buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+                      buttonStyle={isDark
+                        ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
+                        : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+                      cornerRadius={12}
+                      style={[styles.appleButton, styles.appleButtonSpacing]}
+                      onPress={handleAppleSignIn}
+                    />
+                  )
+                )}
               </View>
 
               {/* Footer */}

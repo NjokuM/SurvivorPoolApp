@@ -16,6 +16,7 @@
       "bundleIdentifier": "com.njokum.survivorpoolmobile",
       "buildNumber": "2",
       "googleServicesFile": "./GoogleService-Info.plist",
+      "usesAppleSignIn": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
