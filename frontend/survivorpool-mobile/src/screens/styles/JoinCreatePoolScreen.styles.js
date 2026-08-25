@@ -196,7 +196,11 @@ export const createStyles = (colors) => StyleSheet.create({
     flex: 1,
   },
   leagueSelectorIcon: {
-    fontSize: 24,
+    width: 24,
+    height: 24,
+    marginRight: 12,
+  },
+  leagueSelectorIconFallback: {
     marginRight: 12,
   },
   leagueSelectorText: {
@@ -271,7 +275,11 @@ export const createStyles = (colors) => StyleSheet.create({
     backgroundColor: colors.accent + '10',
   },
   leagueListIcon: {
-    fontSize: 28,
+    width: 28,
+    height: 28,
+    marginRight: 14,
+  },
+  leagueListIconFallback: {
     marginRight: 14,
   },
   leagueListText: {
