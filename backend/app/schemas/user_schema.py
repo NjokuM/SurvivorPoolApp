@@ -52,3 +52,13 @@ class ChangePasswordRequest(BaseModel):
 
 class GoogleAuthRequest(BaseModel):
     id_token: str
+
+
+class AppleAuthRequest(BaseModel):
+    identity_token: str
+    # Apple only includes these on the user's very first authorization ever -
+    # subsequent sign-ins omit them from both the client result and the
+    # token, so the client passes along whatever it got (possibly nothing).
+    email: Optional[EmailStr] = None
+    given_name: Optional[str] = None
+    family_name: Optional[str] = None

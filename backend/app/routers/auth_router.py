@@ -7,8 +7,9 @@ from app.database import get_db
 from app.models.user import User
 from app.utils.auth import verify_password, create_access_token, create_refresh_token, decode_token, token_predates_password_change
 from app.utils.google_auth import verify_google_id_token
+from app.utils.apple_auth import verify_apple_id_token
 from app.dependencies.security import get_current_user
-from app.schemas.user_schema import UserCreate, UserLogin, GoogleAuthRequest
+from app.schemas.user_schema import UserCreate, UserLogin, GoogleAuthRequest, AppleAuthRequest
 from app.crud.user_crud import create_user, generate_unique_username
 
 router = APIRouter(tags=["Auth"])
@@ -107,6 +108,64 @@ async def google_login(
                 firstName=claims.get("given_name") or username,
                 lastName=claims.get("family_name") or "",
                 google_id=google_id,
+            )
+            db.add(user)
+        await db.commit()
+        await db.refresh(user)
+
+    return {
+        "success": True,
+        "message": "Logged in successfully",
+        "access_token": create_access_token(user.id),
+        "refresh_token": create_refresh_token(user.id),
+        "user": {"id": user.id, "email": user.email},
+    }
+
+@router.post("/apple")
+async def apple_login(
+    body: AppleAuthRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        claims = await verify_apple_id_token(body.identity_token)
+    except ValueError:
+        raise HTTPException(status_code=401, detail="Invalid Apple token")
+
+    # Apple sometimes sends this as the string "true"/"false" rather than a
+    # real boolean, depending on token version.
+    if str(claims.get("email_verified", "")).lower() != "true":
+        raise HTTPException(status_code=401, detail="Apple email is not verified")
+
+    apple_id = claims["sub"]
+    # Only present on the user's very first authorization ever - every
+    # later sign-in omits it from both the token and the client result, so
+    # fall back to whatever the client sent (also only ever set on first auth).
+    email = claims.get("email") or body.email
+
+    result = await db.execute(select(User).where(User.apple_id == apple_id))
+    user = result.scalars().first()
+
+    if not user:
+        if not email:
+            # Should only happen if a first-time sign-in is somehow missing
+            # email from both the token and the client - nothing to create
+            # an account with.
+            raise HTTPException(status_code=401, detail="Apple did not provide an email for this sign-in")
+
+        result = await db.execute(select(User).where(User.email == email))
+        user = result.scalars().first()
+        if user:
+            # Existing local account signing in with Apple for the first time.
+            user.apple_id = apple_id
+        else:
+            username = await generate_unique_username(email, db)
+            user = User(
+                userName=username,
+                email=email,
+                password=None,
+                firstName=body.given_name or username,
+                lastName=body.family_name or "",
+                apple_id=apple_id,
             )
             db.add(user)
         await db.commit()

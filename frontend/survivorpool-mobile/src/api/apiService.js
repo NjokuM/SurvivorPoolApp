@@ -99,6 +99,28 @@ export const loginWithGoogle = async (idToken) => {
   return res.data;
 };
 
+// Exchange an Apple identity token (from expo-apple-authentication) for our
+// own JWT pair. email/givenName/familyName are only ever populated by Apple
+// on the user's very first authorization - pass through whatever came back,
+// which may be nothing on a repeat sign-in.
+export const loginWithApple = async (identityToken, email, givenName, familyName) => {
+  if (USE_MOCK_DATA) {
+    await mockDelay(500);
+    return { success: true, message: 'Logged in successfully', user: { id: 1, email: 'demo@example.com' } };
+  }
+  const res = await API.post('/apple', {
+    identity_token: identityToken,
+    email: email || undefined,
+    given_name: givenName || undefined,
+    family_name: familyName || undefined,
+  });
+  if (res.data.success) {
+    await storeTokens(res.data.access_token, res.data.refresh_token);
+    await storeUser(res.data.user);
+  }
+  return res.data;
+};
+
 export const logout = async () => {
   if (USE_MOCK_DATA) {
     await mockDelay(300);
@@ -656,6 +678,7 @@ export default {
   login,
   signup,
   loginWithGoogle,
+  loginWithApple,
   logout,
   restoreSession,
   changePassword,
