@@ -10,6 +10,7 @@ class PoolBase(BaseModel):
     start_gameweek: Optional[int] = None
     max_picks_per_team: Optional[int] = 2
     total_lives: Optional[int] = 3
+    has_lives: Optional[bool] = Field(True, description="False for a league-style pool with no elimination - standings are points only")
     is_active: Optional[bool] = True
 
 class PoolCreate(PoolBase):
@@ -40,6 +41,7 @@ class PoolUserStatsResponse(PoolUserStatsBase):
     pool_id : int
     user_id : int
     lives_left: int
+    total_points: int = 0
     eliminated_gameweek: Optional[int] = None
     created_at: datetime
     updated_at : datetime

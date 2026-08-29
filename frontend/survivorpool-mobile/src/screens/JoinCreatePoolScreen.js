@@ -20,6 +20,7 @@ export default function JoinCreatePoolScreen({ route, navigation }) {
   const [poolName, setPoolName] = useState('');
   const [poolDescription, setPoolDescription] = useState('');
   const [selectedLeague, setSelectedLeague] = useState(null);
+  const [hasLives, setHasLives] = useState(true);
   const [totalLives, setTotalLives] = useState('3');
   const [maxPicksPerTeam, setMaxPicksPerTeam] = useState('2');
   const [createdCode, setCreatedCode] = useState(null);
@@ -131,7 +132,8 @@ export default function JoinCreatePoolScreen({ route, navigation }) {
         name: poolName,
         description: poolDescription || `${poolName} survivor pool`,
         competition_id: selectedLeague.id,
-        total_lives: parseInt(totalLives) || 3,
+        has_lives: hasLives,
+        total_lives: hasLives ? (parseInt(totalLives) || 3) : 0,
         max_picks_per_team: parseInt(maxPicksPerTeam) || 2,
         creator_id: userId,
       });
@@ -310,37 +312,76 @@ export default function JoinCreatePoolScreen({ route, navigation }) {
                 </TouchableOpacity>
               </View>
 
-              <View style={styles.inputRow}>
-                <View style={[styles.inputGroup, { flex: 1 }]}>
-                  <Text style={styles.label}>Starting Lives</Text>
-                  <View style={styles.counterContainer}>
-                    <TouchableOpacity 
-                      style={styles.counterButton}
-                      onPress={() => setTotalLives(String(Math.max(1, parseInt(totalLives) - 1)))}
-                    >
-                      <Ionicons name="remove" size={20} color={colors.textPrimary} />
-                    </TouchableOpacity>
-                    <Text style={styles.counterValue}>{totalLives}</Text>
-                    <TouchableOpacity 
-                      style={styles.counterButton}
-                      onPress={() => setTotalLives(String(Math.min(5, parseInt(totalLives) + 1)))}
-                    >
-                      <Ionicons name="add" size={20} color={colors.textPrimary} />
-                    </TouchableOpacity>
-                  </View>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Pool Mode</Text>
+                <View style={styles.modeToggleRow}>
+                  <TouchableOpacity
+                    style={[styles.tabOption, hasLives && styles.tabOptionActive]}
+                    onPress={() => setHasLives(true)}
+                  >
+                    <Ionicons
+                      name="heart"
+                      size={16}
+                      color={hasLives ? colors.textOnAccent : colors.textMuted}
+                    />
+                    <Text style={[styles.tabOptionText, hasLives && styles.tabOptionTextActive]}>
+                      Survivor
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.tabOption, !hasLives && styles.tabOptionActive]}
+                    onPress={() => setHasLives(false)}
+                  >
+                    <Ionicons
+                      name="trophy"
+                      size={16}
+                      color={!hasLives ? colors.textOnAccent : colors.textMuted}
+                    />
+                    <Text style={[styles.tabOptionText, !hasLives && styles.tabOptionTextActive]}>
+                      League
+                    </Text>
+                  </TouchableOpacity>
                 </View>
+                <Text style={styles.modeHint}>
+                  {hasLives
+                    ? 'Lose a life on a loss or missed pick - last one standing wins.'
+                    : 'No elimination - everyone plays every week, ranked by points.'}
+                </Text>
+              </View>
+
+              <View style={styles.inputRow}>
+                {hasLives && (
+                  <View style={[styles.inputGroup, { flex: 1 }]}>
+                    <Text style={styles.label}>Starting Lives</Text>
+                    <View style={styles.counterContainer}>
+                      <TouchableOpacity
+                        style={styles.counterButton}
+                        onPress={() => setTotalLives(String(Math.max(1, parseInt(totalLives) - 1)))}
+                      >
+                        <Ionicons name="remove" size={20} color={colors.textPrimary} />
+                      </TouchableOpacity>
+                      <Text style={styles.counterValue}>{totalLives}</Text>
+                      <TouchableOpacity
+                        style={styles.counterButton}
+                        onPress={() => setTotalLives(String(Math.min(5, parseInt(totalLives) + 1)))}
+                      >
+                        <Ionicons name="add" size={20} color={colors.textPrimary} />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
 
                 <View style={[styles.inputGroup, { flex: 1 }]}>
                   <Text style={styles.label}>Max Picks/Team</Text>
                   <View style={styles.counterContainer}>
-                    <TouchableOpacity 
+                    <TouchableOpacity
                       style={styles.counterButton}
                       onPress={() => setMaxPicksPerTeam(String(Math.max(1, parseInt(maxPicksPerTeam) - 1)))}
                     >
                       <Ionicons name="remove" size={20} color={colors.textPrimary} />
                     </TouchableOpacity>
                     <Text style={styles.counterValue}>{maxPicksPerTeam}</Text>
-                    <TouchableOpacity 
+                    <TouchableOpacity
                       style={styles.counterButton}
                       onPress={() => setMaxPicksPerTeam(String(Math.min(5, parseInt(maxPicksPerTeam) + 1)))}
                     >
@@ -352,30 +393,50 @@ export default function JoinCreatePoolScreen({ route, navigation }) {
 
               <View style={styles.rulesPreview}>
                 <Text style={styles.rulesTitle}>Pool Rules Preview</Text>
-                <View style={styles.ruleItem}>
-                  <Ionicons name="heart" size={16} color={colors.heart} />
-                  <Text style={styles.ruleText}>
-                    Players start with {totalLives} lives
-                  </Text>
-                </View>
+                {hasLives ? (
+                  <View style={styles.ruleItem}>
+                    <Ionicons name="heart" size={16} color={colors.heart} />
+                    <Text style={styles.ruleText}>
+                      Players start with {totalLives} lives
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={styles.ruleItem}>
+                    <Ionicons name="trophy" size={16} color={colors.accent} />
+                    <Text style={styles.ruleText}>
+                      No elimination - ranked by total points
+                    </Text>
+                  </View>
+                )}
                 <View style={styles.ruleItem}>
                   <Ionicons name="repeat" size={16} color={colors.accent} />
                   <Text style={styles.ruleText}>
                     Each team can be picked up to {maxPicksPerTeam} times
                   </Text>
                 </View>
-                <View style={styles.ruleItem}>
-                  <Ionicons name="close-circle" size={16} color={colors.error} />
-                  <Text style={styles.ruleText}>
-                    Lose a life if your team loses
-                  </Text>
-                </View>
-                <View style={styles.ruleItem}>
-                  <Ionicons name="checkmark-circle" size={16} color={colors.success} />
-                  <Text style={styles.ruleText}>
-                    Win or draw keeps you safe
-                  </Text>
-                </View>
+                {hasLives ? (
+                  <>
+                    <View style={styles.ruleItem}>
+                      <Ionicons name="close-circle" size={16} color={colors.error} />
+                      <Text style={styles.ruleText}>
+                        Lose a life if your team loses
+                      </Text>
+                    </View>
+                    <View style={styles.ruleItem}>
+                      <Ionicons name="checkmark-circle" size={16} color={colors.success} />
+                      <Text style={styles.ruleText}>
+                        Win or draw keeps you safe
+                      </Text>
+                    </View>
+                  </>
+                ) : (
+                  <View style={styles.ruleItem}>
+                    <Ionicons name="stats-chart" size={16} color={colors.info} />
+                    <Text style={styles.ruleText}>
+                      Win = 3pts, draw = 1pt, loss or missed pick = 0pts
+                    </Text>
+                  </View>
+                )}
                 {selectedLeague && (
                   <View style={styles.ruleItem}>
                     <Ionicons name="football" size={16} color={colors.info} />

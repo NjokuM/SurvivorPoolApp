@@ -275,6 +275,7 @@ export const getUserPoolsWithDetails = async (userId) => {
           ...pool,
           user_stats: {
             lives_left: stats.lives_left,
+            total_points: stats.total_points,
             eliminated_gameweek: stats.eliminated_gameweek,
             rank: userRank,
           },

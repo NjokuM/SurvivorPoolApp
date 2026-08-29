@@ -202,15 +202,24 @@ export default function MyPoolsScreen({ route, navigation }) {
                 {/* Pool Stats */}
                 <View style={styles.poolStatsRow}>
                   <View style={styles.poolStat}>
-                    <View style={styles.livesContainer}>
-                      {[...Array(livesLeft)].map((_, i) => (
-                        <Ionicons key={i} name="heart" size={16} color={colors.heart} />
-                      ))}
-                      {[...Array(Math.max(0, (pool.total_lives || 3) - livesLeft))].map((_, i) => (
-                        <Ionicons key={`e-${i}`} name="heart-outline" size={16} color={colors.heartEmpty} />
-                      ))}
-                    </View>
-                    <Text style={styles.poolStatLabel}>{livesLeft} Lives</Text>
+                    {pool.has_lives === false ? (
+                      <>
+                        <Text style={styles.poolStatValue}>{pool.user_stats?.total_points ?? 0}</Text>
+                        <Text style={styles.poolStatLabel}>Points</Text>
+                      </>
+                    ) : (
+                      <>
+                        <View style={styles.livesContainer}>
+                          {[...Array(livesLeft)].map((_, i) => (
+                            <Ionicons key={i} name="heart" size={16} color={colors.heart} />
+                          ))}
+                          {[...Array(Math.max(0, (pool.total_lives || 3) - livesLeft))].map((_, i) => (
+                            <Ionicons key={`e-${i}`} name="heart-outline" size={16} color={colors.heartEmpty} />
+                          ))}
+                        </View>
+                        <Text style={styles.poolStatLabel}>{livesLeft} Lives</Text>
+                      </>
+                    )}
                   </View>
                   
                   <View style={styles.poolStatDivider} />

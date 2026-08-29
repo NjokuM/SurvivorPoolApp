@@ -13,6 +13,7 @@ class Pool(Base):
     start_gameweek = Column(Integer, nullable=False)
     max_picks_per_team = Column(Integer, nullable=False, default=2)
     total_lives = Column(Integer, nullable=False, default=3)
+    has_lives = Column(Boolean, nullable=False, default=True, server_default="true")
     created_by = Column(Integer, ForeignKey("users.id")) # TODO nullable = False
     is_active = Column(Boolean, nullable=False, default=True, server_default="true")
 

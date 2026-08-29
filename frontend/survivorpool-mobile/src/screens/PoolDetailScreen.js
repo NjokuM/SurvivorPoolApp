@@ -266,8 +266,17 @@ export default function PoolDetailScreen({ route, navigation }) {
         </View>
         <View style={styles.headerRight}>
           <View style={styles.livesIndicator}>
-            <Ionicons name="heart" size={16} color={colors.heart} />
-            <Text style={styles.livesText}>{livesLeft}</Text>
+            {pool?.has_lives === false ? (
+              <>
+                <Ionicons name="trophy" size={16} color={colors.accent} />
+                <Text style={styles.livesText}>{userStats?.total_points || 0}</Text>
+              </>
+            ) : (
+              <>
+                <Ionicons name="heart" size={16} color={colors.heart} />
+                <Text style={styles.livesText}>{livesLeft}</Text>
+              </>
+            )}
           </View>
         </View>
       </View>
@@ -351,17 +360,24 @@ export default function PoolDetailScreen({ route, navigation }) {
 
             {/* Stats Overview */}
             <View style={styles.statsGrid}>
-              <View style={styles.statsCard}>
-                <View style={styles.livesDisplay}>
-                  {[...Array(livesLeft)].map((_, i) => (
-                    <Ionicons key={i} name="heart" size={20} color={colors.heart} />
-                  ))}
-                  {[...Array(Math.max(0, (pool?.total_lives || 3) - livesLeft))].map((_, i) => (
-                    <Ionicons key={`e-${i}`} name="heart-outline" size={20} color={colors.heartEmpty} />
-                  ))}
+              {pool?.has_lives === false ? (
+                <View style={styles.statsCard}>
+                  <Text style={styles.statsValue}>{userStats?.total_points || 0}</Text>
+                  <Text style={styles.statsLabel}>Total Points</Text>
                 </View>
-                <Text style={styles.statsLabel}>Lives Remaining</Text>
-              </View>
+              ) : (
+                <View style={styles.statsCard}>
+                  <View style={styles.livesDisplay}>
+                    {[...Array(livesLeft)].map((_, i) => (
+                      <Ionicons key={i} name="heart" size={20} color={colors.heart} />
+                    ))}
+                    {[...Array(Math.max(0, (pool?.total_lives || 3) - livesLeft))].map((_, i) => (
+                      <Ionicons key={`e-${i}`} name="heart-outline" size={20} color={colors.heartEmpty} />
+                    ))}
+                  </View>
+                  <Text style={styles.statsLabel}>Lives Remaining</Text>
+                </View>
+              )}
               <View style={styles.statsCard}>
                 <Text style={styles.statsValue}>#{userRank}</Text>
                 <Text style={styles.statsLabel}>Your Rank</Text>
@@ -445,10 +461,12 @@ export default function PoolDetailScreen({ route, navigation }) {
                         {userPickCount} picks • {entry.total_points || 0} pts
                       </Text>
                     </View>
-                    <View style={styles.leaderboardLives}>
-                      <Ionicons name="heart" size={14} color={colors.heart} />
-                      <Text style={styles.leaderboardLivesText}>{entry.lives_left}</Text>
-                    </View>
+                    {pool?.has_lives !== false && (
+                      <View style={styles.leaderboardLives}>
+                        <Ionicons name="heart" size={14} color={colors.heart} />
+                        <Text style={styles.leaderboardLivesText}>{entry.lives_left}</Text>
+                      </View>
+                    )}
                   </View>
                 );
               })}
@@ -630,7 +648,9 @@ export default function PoolDetailScreen({ route, navigation }) {
               <Text style={[styles.columnHeaderText, { flex: 1 }]}>Player</Text>
               <Text style={[styles.columnHeaderText, { width: 50, textAlign: 'center' }]}>Picks</Text>
               <Text style={[styles.columnHeaderText, { width: 50, textAlign: 'center' }]}>Pts</Text>
-              <Text style={[styles.columnHeaderText, { width: 60, textAlign: 'center' }]}>Lives</Text>
+              {pool?.has_lives !== false && (
+                <Text style={[styles.columnHeaderText, { width: 60, textAlign: 'center' }]}>Lives</Text>
+              )}
             </View>
 
             {leaderboard.map((entry, index) => {
@@ -656,14 +676,16 @@ export default function PoolDetailScreen({ route, navigation }) {
                   </View>
                   <Text style={styles.standingsStatText}>{pickCount}</Text>
                   <Text style={[styles.standingsStatText, styles.standingsPoints]}>{entry.total_points || 0}</Text>
-                  <View style={styles.standingsLives}>
-                    {[...Array(entry.lives_left || 0)].map((_, i) => (
-                      <Ionicons key={i} name="heart" size={12} color={colors.heart} />
-                    ))}
-                    {[...Array(Math.max(0, (pool?.total_lives || 3) - (entry.lives_left || 0)))].map((_, i) => (
-                      <Ionicons key={`e-${i}`} name="heart-outline" size={12} color={colors.heartEmpty} />
-                    ))}
-                  </View>
+                  {pool?.has_lives !== false && (
+                    <View style={styles.standingsLives}>
+                      {[...Array(entry.lives_left || 0)].map((_, i) => (
+                        <Ionicons key={i} name="heart" size={12} color={colors.heart} />
+                      ))}
+                      {[...Array(Math.max(0, (pool?.total_lives || 3) - (entry.lives_left || 0)))].map((_, i) => (
+                        <Ionicons key={`e-${i}`} name="heart-outline" size={12} color={colors.heartEmpty} />
+                      ))}
+                    </View>
+                  )}
                 </View>
               );
             })}
@@ -778,7 +800,7 @@ export default function PoolDetailScreen({ route, navigation }) {
                     <View style={styles.historyUserSelectInfo}>
                       <Text style={styles.historyUsername}>{entry.username}</Text>
                       <Text style={styles.historyUserSelectSub}>
-                        {entry.total_points || 0} pts • {entry.lives_left || 0} lives
+                        {entry.total_points || 0} pts{pool?.has_lives !== false ? ` • ${entry.lives_left || 0} lives` : ''}
                       </Text>
                     </View>
                     <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
@@ -806,7 +828,7 @@ export default function PoolDetailScreen({ route, navigation }) {
                   </View>
                   <Text style={styles.historyUserName}>{selectedHistoryUser.username}</Text>
                   <Text style={styles.historyUserStats}>
-                    {selectedHistoryUser.total_points || 0} pts • {selectedHistoryUser.lives_left || 0} lives
+                    {selectedHistoryUser.total_points || 0} pts{pool?.has_lives !== false ? ` • ${selectedHistoryUser.lives_left || 0} lives` : ''}
                   </Text>
                 </View>
 
