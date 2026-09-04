@@ -4,7 +4,7 @@ Running notes on how this app is deployed, what needs to happen every season,
 and what to check when something looks wrong. Keep this current — it's the
 first place to look before debugging from scratch.
 
-_Last updated: 2026-08-29_
+_Last updated: 2026-09-04_
 
 ---
 
@@ -16,18 +16,35 @@ _Last updated: 2026-08-29_
 | int | `https://survivorpoolapp-int.up.railway.app` | Pre-prod testing. Currently configured with the 5 major leagues only (Premier League, La Liga, Ligue 1, Bundesliga, Serie A). |
 | prod | `https://survivorpoolapp-production.up.railway.app` | Real users. Has 6 extra minor leagues int doesn't (Irish First Division/Premier Division/FAI Cup/Women's President's Cup, Primeira Liga, Eredivisie) — origin unclear, likely leftover test data. |
 
-**Deployment:** both int and prod are Railway services. It's not confirmed
-whether either auto-deploys on push to `main` or requires a manual trigger —
-this needs verifying in the Railway dashboard. Migrations run automatically
-as part of container startup (`backend/Dockerfile`'s `/start.sh` runs
-`alembic upgrade head` before starting uvicorn) — **a broken migration chain
-crashes the whole container**, not just the affected feature. This already
-caused a real outage once (see Incident Log below); always verify
-`alembic heads` shows a single clean head before merging a migration.
+**Deployment:** both int and prod are Railway services, and **both
+auto-deploy from `main` together** (confirmed 2026-09-04) — there's no way
+to push to one without the other picking up the same change, so anything
+risky needs to be fully ready (env vars set, external dependencies like
+cron jobs updated) *before* pushing, not staged in afterward.  Migrations
+run automatically as part of container startup (`backend/Dockerfile`'s
+`/start.sh` runs `alembic upgrade head` before starting uvicorn) — **a
+broken migration chain crashes the whole container**, not just the
+affected feature. This already caused a real outage once (see Incident Log
+below); always verify `alembic heads` shows a single clean head before
+merging a migration.
 
 **Backend env vars needed** (see `.env.example`): `DATABASE_URL`,
 `SECRET_KEY`, `CRON_SECRET`, `RAPIDAPI_KEY`/`RAPIDAPI_HOST`, `BASE_URL`,
 `GOOGLE_WEB_CLIENT_ID`, `APPLE_BUNDLE_ID`.
+
+**Local Postgres runs in Docker, not Homebrew.** The local dev database is
+a Docker container named `my_postgres` (`docker start my_postgres` /
+`docker ps` to check), bound to host port 5432 — matches `DATABASE_URL` in
+the root `.env` (`postgresql+asyncpg://postgres:...@localhost:5432/SurvivorPool`).
+**Do not** `brew services start postgresql@14` (or any other local Postgres)
+to "fix" a connection-refused error without checking this first — a
+long-idle Homebrew Postgres install exists on this machine from an
+unrelated older setup (empty, no `SurvivorPool` db, data directory dated
+Nov 2023) and will silently grab port 5432 out from under the Docker
+container if started, blocking it from binding on next start. If local
+dev suddenly can't reach the DB (common after the machine sleeps - the
+container doesn't survive a sleep/wake cycle), the fix is `docker start
+my_postgres`, not starting a different Postgres.
 
 ---
 

@@ -16,6 +16,7 @@ from app.services.scheduler import (
     weekly_schedule_refresh,
     force_process_competition_gameweek
 )
+from app.services.notifications import check_and_send_deadline_reminders
 from sqlalchemy.future import select
 from app.models.competiton_data import Competition
 from app.dependencies.security import verify_cron
@@ -119,14 +120,19 @@ async def update_fixtures_for_league(league_id: int, season: int, db: AsyncSessi
 async def run_smart_sync(db: AsyncSession = Depends(get_db)):
     """
     MAIN CRON JOB - Run every 15-30 mins.
-    
+
     Only makes API calls when games are actually finishing.
     - Checks which leagues have active pools
     - Checks if any games kicked off 90-150 mins ago (likely finishing)
     - If yes: syncs those fixtures and processes picks
     - If no: does nothing (no API cost)
+
+    Also checks for due pick-deadline reminders on every tick - this is
+    pure DB reads plus (at most) a handful of push sends, no external
+    football-API cost either way, so it doesn't need its own cron job.
     """
     result = await smart_sync_and_process(db)
+    result["reminders"] = await check_and_send_deadline_reminders(db)
     return result
 
 

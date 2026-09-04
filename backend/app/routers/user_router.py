@@ -1,9 +1,16 @@
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from app.database import get_db
 from app.models.user import User
+from app.models.notification import PushToken
 from app.schemas.user_schema import UserOut, ChangePasswordRequest
+from app.schemas.notification_schema import (
+    PushTokenRegister,
+    NotificationPreferencesUpdate,
+    NotificationPreferencesResponse,
+)
 from app.crud import user_crud as crud_user
 from app.dependencies.security import get_current_user
 from app.utils.auth import verify_password, hash_password, create_access_token, create_refresh_token
@@ -49,4 +56,48 @@ async def change_password(
         "access_token": create_access_token(current_user.id),
         "refresh_token": create_refresh_token(current_user.id),
     }
-    
+
+
+@router.post("/me/push-token")
+async def register_push_token(
+    body: PushTokenRegister,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Register (or update) this device's Expo push token. One token per
+    user - the most recently registered device is the one that gets
+    notified."""
+    result = await db.execute(select(PushToken).where(PushToken.user_id == current_user.id))
+    existing = result.scalar_one_or_none()
+
+    if existing:
+        existing.token = body.token
+        existing.platform = body.platform
+    else:
+        db.add(PushToken(user_id=current_user.id, token=body.token, platform=body.platform))
+
+    await db.commit()
+    return {"message": "Push token registered"}
+
+
+@router.put("/me/notification-preferences", response_model=NotificationPreferencesResponse)
+async def update_notification_preferences(
+    body: NotificationPreferencesUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if body.notifications_enabled is not None:
+        current_user.notifications_enabled = body.notifications_enabled
+    if body.deadline_reminders_enabled is not None:
+        current_user.deadline_reminders_enabled = body.deadline_reminders_enabled
+    if body.result_notifications_enabled is not None:
+        current_user.result_notifications_enabled = body.result_notifications_enabled
+
+    await db.commit()
+    await db.refresh(current_user)
+    return current_user
+
+
+@router.get("/me/notification-preferences", response_model=NotificationPreferencesResponse)
+async def get_notification_preferences(current_user: User = Depends(get_current_user)):
+    return current_user

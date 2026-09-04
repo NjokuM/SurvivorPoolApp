@@ -4,7 +4,7 @@ Running backlog of known issues and planned work. Update this as things are
 found or finished — check items off rather than deleting them, so there's a
 record of what was actually done.
 
-_Last updated: 2026-08-29_
+_Last updated: 2026-09-04_
 
 ---
 
@@ -164,14 +164,44 @@ _Last updated: 2026-08-29_
   and testing on a real device (can't be verified without one). This was
   prompted by App Store guideline 4.8 — offering Google Sign-In without also
   offering Apple's own equivalent is close to a guaranteed review rejection.
-- **Notifications.** Reminders 1 day and 4 hours before a gameweek's first
-  kickoff, daily reminders while still unpicked, and a "pick processed with
-  result" notification. Deadline model: a pick is valid against any
-  not-yet-kicked-off fixture in the gameweek; the true miss cutoff is the
-  *last* fixture's kickoff, not the first. Agreed approach: extend the
-  existing polling/scheduler for now (push tokens table, Expo push
-  integration, notification log for idempotency), with a move to a Kafka-style
-  event-driven pipeline planned later, not immediately. Not started.
+- **Notifications** — backend done and tested, frontend wired, **blocked on
+  a new EAS dev-client build + real-device testing** (same situation as
+  Apple Sign-In: `expo-notifications` is a native module, won't work in the
+  currently-installed build). Shipped:
+  - `day_before` / `four_hour` reminders anchored to the gameweek's first
+    kickoff, plus a `daily_unpicked` nudge for any day in between (skipped
+    on a day the other two already fired, so no double-ping). All check
+    against the *last* fixture's kickoff for the actual deadline, matching
+    the pick model (a pick is valid against any not-yet-started fixture in
+    the gameweek). Idempotent per (user, pool, gameweek, type, day) via
+    `NotificationLog` - safe to call on every scheduler tick.
+  - `pick_result` notification fires automatically at the end of
+    `process_gameweek_results` for every newly-scored pick, including NP
+    (missed pick) - copy differs for league vs. survivor mode (mentions
+    losing a life only where that's real).
+  - Reminder check folded into the existing `POST
+    /external/football/scheduler/smart-sync` tick (every ~30 min) rather
+    than needing its own cron job - pure DB reads plus at most a few pushes,
+    no extra football-API cost.
+  - `PushToken` (one per user, most recent device wins) and
+    `NotificationLog` tables; three preference columns on `User`
+    (`notifications_enabled`, `deadline_reminders_enabled`,
+    `result_notifications_enabled`) wired to the three toggles already on
+    the Profile screen's Notifications section - those were previously
+    local-only UI state with no backend behind them.
+  - Sends via Expo's push API directly over `httpx` (no SDK dependency) -
+    `POST /users/me/push-token`, `GET`/`PUT
+    /users/me/notification-preferences`.
+  - **Still needed before this actually works on a phone:** `expo-notifications`
+    + `expo-device` installed and `expo-notifications` added to
+    `app.json`'s plugins, but that's a native module change - requires a
+    fresh interactive EAS build (`eas build --profile development
+    --platform ios`, same as Apple Sign-In needed) before push tokens can
+    even be generated on-device. iOS also needs the "Push Notifications"
+    capability, which EAS Build typically provisions automatically for an
+    interactive build (same mechanism that picked up Sign In with Apple's
+    entitlement once run interactively) - not confirmed since it can't be
+    without a real build.
 
 ### Deferred (explicitly deprioritized, not urgent)
 

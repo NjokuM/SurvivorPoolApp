@@ -1,6 +1,7 @@
 import { View, Text, TouchableOpacity, ScrollView, StatusBar, Switch, Linking, Alert } from 'react-native';
 import { useState, useEffect } from 'react';
 import { Ionicons } from '@expo/vector-icons';
+import Toast from 'react-native-toast-message';
 import { useTheme } from '../theme/colors';
 import apiService from '../api/apiService';
 import { createStyles } from './styles/ProfileScreen.styles';
@@ -20,6 +21,7 @@ export default function ProfileScreen({ route, navigation }) {
 
   useEffect(() => {
     loadUserAndStats();
+    loadNotificationPreferences();
   }, []);
 
   const loadUserAndStats = async () => {
@@ -30,17 +32,45 @@ export default function ProfileScreen({ route, navigation }) {
         apiService.getUserPicks(userId),
       ]);
       setUser(userData);
-      
+
       // Calculate stats from real data
       const totalPools = userPools.length;
       const totalPicks = userPicks.length;
       const wins = userPicks.filter(p => p.result === 'WIN' || p.result === 'win').length;
       const completedPicks = userPicks.filter(p => p.result).length;
       const winRate = completedPicks > 0 ? Math.round((wins / completedPicks) * 100) : 0;
-      
+
       setStats({ totalPools, totalPicks, winRate });
     } catch (error) {
       console.error('Error loading user:', error);
+    }
+  };
+
+  const loadNotificationPreferences = async () => {
+    try {
+      const prefs = await apiService.getNotificationPreferences();
+      setNotificationsEnabled(prefs.notifications_enabled);
+      setDeadlineReminders(prefs.deadline_reminders_enabled);
+      setResultNotifications(prefs.result_notifications_enabled);
+    } catch (error) {
+      console.error('Error loading notification preferences:', error);
+    }
+  };
+
+  // Optimistic toggle: flips the switch immediately, then persists to the
+  // backend and reverts + toasts on failure so the UI never silently lies
+  // about what's actually enabled server-side.
+  const handleTogglePreference = (key, setter) => async (value) => {
+    setter(value);
+    try {
+      await apiService.updateNotificationPreferences({ [key]: value });
+    } catch (error) {
+      setter(!value);
+      Toast.show({
+        type: 'error',
+        text1: 'Failed to update',
+        text2: error.message || 'Please try again',
+      });
     }
   };
 
@@ -170,27 +200,27 @@ Thanks!`,
     {
       title: 'Notifications',
       items: [
-        { 
-          icon: 'notifications-outline', 
-          label: 'Push Notifications', 
+        {
+          icon: 'notifications-outline',
+          label: 'Push Notifications',
           toggle: true,
           value: notificationsEnabled,
-          onToggle: setNotificationsEnabled,
+          onToggle: handleTogglePreference('notifications_enabled', setNotificationsEnabled),
         },
-        { 
-          icon: 'alarm-outline', 
-          label: 'Deadline Reminders', 
+        {
+          icon: 'alarm-outline',
+          label: 'Deadline Reminders',
           toggle: true,
           value: deadlineReminders,
-          onToggle: setDeadlineReminders,
+          onToggle: handleTogglePreference('deadline_reminders_enabled', setDeadlineReminders),
           subtitle: 'Get reminded before pick deadlines',
         },
-        { 
-          icon: 'football-outline', 
-          label: 'Match Results', 
+        {
+          icon: 'football-outline',
+          label: 'Match Results',
           toggle: true,
           value: resultNotifications,
-          onToggle: setResultNotifications,
+          onToggle: handleTogglePreference('result_notifications_enabled', setResultNotifications),
           subtitle: 'Notifications when your picks resolve',
         },
       ],

@@ -174,10 +174,12 @@ async def _detect_missed_picks(
     (one life, same as a loss) and makes future runs idempotent, since the
     NP record itself counts as "has a pick" on the next pass.
 
-    Returns an accum dict in the same shape _evaluate_picks produces, so
-    _apply_stats_updates can handle real losses and missed picks uniformly.
+    Returns {"accum": ..., "np_picks": [...]} - accum is in the same shape
+    _evaluate_picks produces, so _apply_stats_updates can handle real losses
+    and missed picks uniformly; np_picks lets callers notify on them.
     """
     accum = {}
+    np_picks = []
     fixture_ids = [f.id for f in gameweek_fixtures]
     # Attach the NP record to the gameweek's last kickoff - callers only
     # invoke this once that kickoff has passed, since a user can pick any
@@ -198,7 +200,7 @@ async def _detect_missed_picks(
             if stats.lives_left <= 0:
                 continue  # already eliminated - nothing left to penalize
 
-            db.add(Pick(
+            np_pick = Pick(
                 pool_id=pool.id,
                 user_id=stats.user_id,
                 team_id=None,
@@ -206,13 +208,15 @@ async def _detect_missed_picks(
                 competition_id=competition_id,
                 result=PickResultEnum.NP,
                 points=0,
-            ))
+            )
+            db.add(np_pick)
+            np_picks.append(np_pick)
 
             key = (pool.id, stats.user_id)
             bucket = accum.setdefault(key, {"points": 0, "losses": 0})
             bucket["losses"] += 1
 
-    return accum
+    return {"accum": accum, "np_picks": np_picks}
 
 
 # ------------------------------------------------------------
@@ -303,6 +307,7 @@ async def process_gameweek_results(
     summary["picks_processed"] = res["picks_processed"]
     summary["points_awarded"] = res["total_points"]
     accum = res["accum"]
+    newly_scored_picks = [p for p in picks if p.result is not None]
 
     # Fold in anyone who never picked at all - but only once the picking
     # window has definitively closed.
@@ -313,11 +318,12 @@ async def process_gameweek_results(
         # letting the comparison below raise.
         last_kickoff = last_kickoff.replace(tzinfo=timezone.utc)
     if datetime.now(timezone.utc) >= last_kickoff:
-        missed_accum = await _detect_missed_picks(db, competition_id, gameweek, gameweek_fixtures)
-        for key, data in missed_accum.items():
+        missed = await _detect_missed_picks(db, competition_id, gameweek, gameweek_fixtures)
+        for key, data in missed["accum"].items():
             bucket = accum.setdefault(key, {"points": 0, "losses": 0})
             bucket["points"] += data["points"]
             bucket["losses"] += data["losses"]
+        newly_scored_picks.extend(missed["np_picks"])
 
     if not accum:
         return summary
@@ -332,4 +338,14 @@ async def process_gameweek_results(
         apply_decrements_for_eliminated=apply_decrements_for_eliminated
     )
     await db.commit()
+
+    if newly_scored_picks:
+        # Notification failures must never break results processing - the
+        # points/lives writes above have already committed successfully.
+        try:
+            from app.services.notifications import notify_pick_results
+            await notify_pick_results(db, newly_scored_picks)
+        except Exception as e:
+            print(f"Failed to send pick-result notifications: {e}")
+
     return summary

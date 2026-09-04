@@ -175,6 +175,43 @@ export const changePassword = async (currentPassword, newPassword) => {
   }
 };
 
+// ==================== NOTIFICATIONS ====================
+
+export const registerPushToken = async (token, platform) => {
+  if (USE_MOCK_DATA) {
+    await mockDelay(200);
+    return { message: 'Push token registered' };
+  }
+  try {
+    const res = await API.post('/users/me/push-token', { token, platform });
+    return res.data;
+  } catch (error) {
+    throw new Error(getErrorMessage(error));
+  }
+};
+
+export const getNotificationPreferences = async () => {
+  if (USE_MOCK_DATA) {
+    await mockDelay(200);
+    return { notifications_enabled: true, deadline_reminders_enabled: true, result_notifications_enabled: true };
+  }
+  const res = await API.get('/users/me/notification-preferences');
+  return res.data;
+};
+
+export const updateNotificationPreferences = async (preferences) => {
+  if (USE_MOCK_DATA) {
+    await mockDelay(300);
+    return { ...preferences };
+  }
+  try {
+    const res = await API.put('/users/me/notification-preferences', preferences);
+    return res.data;
+  } catch (error) {
+    throw new Error(getErrorMessage(error));
+  }
+};
+
 // ==================== USERS ====================
 
 export const getUser = async (userId) => {
@@ -716,4 +753,7 @@ export default {
   getPoolPicks,
   updatePick,
   getHomeScreenData,
+  registerPushToken,
+  getNotificationPreferences,
+  updateNotificationPreferences,
 };

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, Platform } from 'react-native';
 import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -11,6 +11,7 @@ import { ThemeProvider, useTheme } from './src/theme/colors';
 import apiService from './src/api/apiService';
 import { authEvents } from './src/api/api';
 import { GOOGLE_WEB_CLIENT_ID } from './src/config/google';
+import { registerForPushNotificationsAsync } from './src/utils/pushNotifications';
 import LoginScreen from './src/screens/LoginScreen';
 import SignupScreen from './src/screens/SignupScreen';
 import MyPoolsScreen from './src/screens/MyPoolsScreen';
@@ -38,7 +39,24 @@ authEvents.onSessionExpired = () => {
 function MainTabs({ route }) {
   const { userId } = route.params;
   const { colors } = useTheme();
-  
+
+  // Every path into the authenticated app (login, signup, Google, Apple,
+  // or a silently-restored session) lands here, so this is the one place
+  // that needs to register the device's push token - re-registering on
+  // every mount is harmless, the backend just upserts the same row.
+  useEffect(() => {
+    (async () => {
+      const token = await registerForPushNotificationsAsync();
+      if (token) {
+        try {
+          await apiService.registerPushToken(token, Platform.OS);
+        } catch (error) {
+          console.error('Failed to register push token with backend:', error);
+        }
+      }
+    })();
+  }, []);
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({

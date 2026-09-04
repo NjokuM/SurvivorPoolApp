@@ -4,6 +4,7 @@ from .competiton_data import Competition, Team, Fixture
 from .pool import Pool, PoolUserStats
 from .user import User
 from .pick import Pick
+from .notification import PushToken, NotificationLog
 
 __all__ = [
     "Base",
@@ -14,4 +15,6 @@ __all__ = [
     "User",
     "Pick",
     "Fixture",
+    "PushToken",
+    "NotificationLog",
 ]
