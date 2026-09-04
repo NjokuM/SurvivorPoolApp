@@ -4,7 +4,7 @@ Running notes on how this app is deployed, what needs to happen every season,
 and what to check when something looks wrong. Keep this current — it's the
 first place to look before debugging from scratch.
 
-_Last updated: 2026-08-25_
+_Last updated: 2026-08-29_
 
 ---
 
@@ -41,13 +41,16 @@ typically start mid-August):
    against one league first. API-Football labels a season by its *start*
    year (e.g. the 2026-27 season is `season=2026`).
 2. **Sync each league**, in order (fixtures depends on teams already
-   existing, teams sync depends on the league row already existing):
+   existing, teams sync depends on the league row already existing). As of
+   2026-08-29 every `/external/football/*` route requires an
+   `x-cron-secret: <CRON_SECRET>` header (previously unauthenticated):
    ```
    POST /external/football/leagues/sync?id=<external_id>&season=<year>
    POST /external/football/teams/sync?league=<external_id>&season=<year>
    POST /external/football/fixtures/sync?league=<external_id>&season=<year>
    ```
-   Run this against **int first**, verify, then **prod**. Check the response
+   (add `-H "x-cron-secret: <value>"` to each `curl` call). Run this against
+   **int first**, verify, then **prod**. Check the response
    `skipped` counts — nonzero skips on fixtures usually means teams didn't
    fully sync (check for a 500 on the teams call).
 3. **Verify**: team count and fixture count per league should match reality
@@ -106,6 +109,12 @@ wrong and fixed.
   missed-pick life loss will never process automatically — someone has to
   manually hit the endpoint after every gameweek. This is the single most
   important thing to confirm before relying on the app for a real pool.
+- **Now more urgent:** as of 2026-08-29, `/external/football/scheduler/*`
+  and `/admin/process-results/*` require an `x-cron-secret` header matching
+  the `CRON_SECRET` env var (previously fully open). If something *was*
+  quietly calling these on a schedule, it will start getting 401s after
+  this deploys unless it's updated to send that header — check whatever
+  answers the question above before/right after deploying, not after.
 - RapidAPI quota isn't being tracked anywhere. Worth checking the plan's
   daily/monthly limits before running a full season sync (5-11 leagues ×
   3 calls each), and before the smart-sync cron (if configured) starts

@@ -211,7 +211,7 @@ async def refresh(
     }
 
 @router.post("/logout")
-async def logout():
+async def logout(current_user: User = Depends(get_current_user)):
     # Tokens are stateless JWTs, so logging out is just the client discarding
     # them locally. This endpoint exists for a consistent API contract.
     return {"message": "Logged out"}

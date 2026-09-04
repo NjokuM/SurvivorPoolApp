@@ -4,6 +4,7 @@ from sqlalchemy import select, func
 from app.models.competiton_data import Team, Competition,Fixture
 from app.schemas.competition_schema import TeamCreate, LeagueCreate, FixtureCreate, FixtureUpdate
 from datetime import datetime
+import math
 
 # Save team to DB if not already existing
 async def store_team_in_db(db: AsyncSession, team: TeamCreate) -> Team:
@@ -147,3 +148,55 @@ async def get_current_gameweek(db, competition_id: int):
         .where(Fixture.competition_id == competition_id)
     )
     return result.scalar_one()
+
+async def get_pick_limits(db, competition_id: int, start_gameweek: int | None = None):
+    """How many times a team may be picked, given how many gameweeks remain
+    and how many teams are in the competition.
+
+    A pool can't set max_picks_per_team so low that players run out of
+    distinct teams before the season ends - e.g. a 20-team league starting
+    from gameweek 1 has 38 gameweeks to fill, so picking each team only
+    once (20 total picks available) leaves 18 gameweeks with no valid pick
+    left. The minimum viable value is the smallest limit where
+    team_count * max_picks_per_team still covers every remaining gameweek,
+    which is also used as the suggested default so a freshly created pool
+    is playable to completion without the creator having to work this out.
+    """
+    if start_gameweek is None:
+        start_gameweek = await get_current_gameweek(db, competition_id)
+    if start_gameweek is None:
+        # No fixtures synced at all yet (a brand-new league before its first
+        # pool's background sync has run) - nothing to compute a real
+        # gameweek from, so fall back to a nominal season start.
+        start_gameweek = 1
+
+    max_gw_result = await db.execute(
+        select(func.max(Fixture.gameweek)).where(Fixture.competition_id == competition_id)
+    )
+    total_gameweeks = max_gw_result.scalar_one() or start_gameweek
+
+    team_count_result = await db.execute(
+        select(func.count(Team.id)).where(Team.competition_id == competition_id)
+    )
+    team_count = team_count_result.scalar_one() or 0
+
+    remaining_gameweeks = max(1, total_gameweeks - start_gameweek + 1)
+
+    if team_count <= 0:
+        # No teams synced yet - true for the very first pool ever created on
+        # a brand-new league, since fixture/team sync only kicks off in the
+        # background once that first pool exists. Nothing to compute against
+        # yet, so fall back to the old flat default rather than forcing 1.
+        min_viable = 1
+        default_viable = 2
+    else:
+        min_viable = max(1, math.ceil(remaining_gameweeks / team_count))
+        default_viable = min_viable
+
+    return {
+        "min_max_picks_per_team": min_viable,
+        "default_max_picks_per_team": default_viable,
+        "remaining_gameweeks": remaining_gameweeks,
+        "team_count": team_count,
+        "start_gameweek": start_gameweek,
+    }

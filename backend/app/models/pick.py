@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, ForeignKey, DateTime, Enum, UniqueConstraint, func
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Enum, UniqueConstraint, func
 from sqlalchemy.orm import relationship
 from app.models.base import Base
 import enum
@@ -22,6 +22,10 @@ class Pick(Base):
     away_score = Column(Integer)
     result = Column(Enum(PickResultEnum))
     points = Column(Integer, default=0)
+    # "user" for a normal in-app pick, "admin" for one entered/corrected by
+    # the pool's admin (e.g. migrating pre-app history) - lets the UI show
+    # which picks weren't made live by the player themselves.
+    source = Column(String, nullable=False, default="user", server_default="user")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     __table_args__ = (

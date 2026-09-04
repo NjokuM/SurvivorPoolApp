@@ -4,7 +4,7 @@ Running backlog of known issues and planned work. Update this as things are
 found or finished — check items off rather than deleting them, so there's a
 record of what was actually done.
 
-_Last updated: 2026-08-25_
+_Last updated: 2026-08-29_
 
 ---
 
@@ -33,9 +33,18 @@ _Last updated: 2026-08-25_
   the test fails. Not a real security issue (the actual verification logic
   is correct), just a bad choice of which character to flip. Quick fix:
   flip a character from the middle of the signature instead.
-- **Scheduler cron status unconfirmed.** See operations.md — if nothing is
-  actually calling `/scheduler/smart-sync` on a timer, results processing
-  and missed-pick penalties never run automatically.
+- **Scheduler cron status unconfirmed - now more urgent.** See operations.md
+  — if nothing is actually calling `/scheduler/smart-sync` on a timer,
+  results processing and missed-pick penalties never run automatically.
+  As of the endpoint-security pass (2026-08-29), that endpoint (and every
+  other `/external/football/*` and `/admin/process-results/*` route) now
+  *requires* an `x-cron-secret` header matching the `CRON_SECRET` env var —
+  previously these had no auth at all. **Action needed:** confirm
+  `CRON_SECRET` is set in Railway for int/prod, and that whatever calls
+  these endpoints (cron job, Railway scheduled service, or a manual ops
+  script) sends that header - otherwise those calls will start failing
+  with 401 after this deploys, silently breaking automation that may have
+  been working (however unauthenticated) before.
 
 ### Fixed this session (2026-08)
 
@@ -63,6 +72,25 @@ _Last updated: 2026-08-25_
   league client-side.
 - Pool creation used a hardcoded country-flag emoji instead of the league's
   real logo from the API.
+- `max_picks_per_team` was a flat value (default 2, UI range 1-5) with no
+  regard for the league's actual format. A limit of 1 was selectable even
+  when the season had more remaining gameweeks than teams (guaranteed to
+  run out of valid picks before the season ended), and the default of 2 was
+  wrong for shorter/mid-season pools. Now computed per-league as
+  `ceil(remaining_gameweeks / team_count)`: this is both the minimum
+  selectable value (lower values are hidden/rejected as infeasible) and the
+  suggested default, so a freshly created pool is always playable to
+  completion. New `GET /competitions/leagues/{id}/pick-limits` endpoint
+  backs the frontend counter; `POST /pools/create` rejects an
+  under-provisioned value server-side too. Applies identically to league
+  and survivor mode (the per-team cap was never gated by `has_lives`).
+- `get_pick_limits` (and pool creation itself) crashed for the very first
+  pool ever created on a competition with zero fixtures synced yet -
+  `get_current_gameweek` returns `None` with nothing to derive a gameweek
+  from, which then hit `None` arithmetic in `get_pick_limits` and a
+  `NOT NULL` constraint violation on `Pool.start_gameweek` in
+  `create_pool`. Both now fall back to a nominal gameweek 1. Surfaced by
+  the new endpoint-security tests, not something previously reported.
 
 ---
 
@@ -75,6 +103,58 @@ _Last updated: 2026-08-25_
 - Sign in with Google
 - Missed-pick life loss (see bugs — now actually works)
 - 2026-27 season data for all configured leagues
+- League-only pool mode — `Pool.has_lives = false`: points-only standings,
+  no elimination, no `lives_left`/`eliminated_gameweek` tracking. Toggle
+  lives in the "Pool Mode" selector on pool creation.
+- Format-aware `max_picks_per_team` (see bugs above) — applies to both
+  survivor and league mode.
+- League-mode pick creation was blocked entirely by an unconditional
+  "no lives left" check (league pools store `total_lives=0` by design,
+  since they never track lives) — no league-mode user could ever make a
+  pick. Fixed at `pick_router.py` step 8️⃣: the lives gate now only applies
+  when `pool.has_lives`.
+- **Admin pick editing.** `PUT /admin/pools/{pool_id}/users/{user_id}/picks`
+  — only the pool's creator (verified via JWT, not a client-supplied flag)
+  can add or correct another user's picks, for migrating a pool's pre-app
+  history or fixing a mistake. Design: picks for gameweeks not mentioned in
+  the request are left alone; every pick for that user in that pool is then
+  replayed gameweek-by-gameweek through the normal results pipeline
+  (`process_gameweek_results`), so lives/points/elimination come out
+  exactly as if it had all happened live - untouched weeks just recompute
+  to the same result, and any gameweek left without a pick correctly
+  becomes a missed pick. This avoids ever hand-reversing a
+  previously-applied points/life delta, which is error-prone once
+  elimination is involved. `pool.start_gameweek` is pulled back
+  automatically to cover the earliest imported gameweek. `Pick.source`
+  ("user" vs "admin") records which picks were entered this way. The old
+  unauthenticated `force=true` bypass on `POST /picks/` (skipped the
+  fixture-deadline check, no auth at all) has been removed - this endpoint
+  is its replacement.
+- **Every endpoint now requires authentication.** Previously most endpoints
+  trusted a client-supplied `user_id`/`created_by` with no verification at
+  all - any caller could act as anyone. Now:
+  - User-facing endpoints require a valid JWT (`Authorization: Bearer ...`),
+    resolved via the existing `get_current_user` dependency. The frontend
+    already attached this to every request (see `api.js`'s interceptor),
+    so no frontend changes were needed.
+  - Endpoints that act "as" a user (create/join/leave/delete a pool, create/
+    update a pick) now derive that identity from the token, not the request
+    body - a spoofed `user_id` in the body is silently ignored/overridden.
+  - "View my own X" endpoints (`GET /users/{id}/pools`, `GET /picks/user/{id}`)
+    now 403 if the caller isn't that user.
+  - `PUT /picks/{pick_id}` previously had no ownership check at all - now
+    requires the caller to own the pick.
+  - Server-to-server sync/cron endpoints (`/external/football/*`,
+    `/admin/process-results/*`) require the `x-cron-secret` header instead
+    of a user token - a logged-in app user's token alone isn't sufficient
+    for these. **See the cron-status bug above - this needs a Railway
+    `CRON_SECRET` check before/after deploy.**
+  - Removed `POST /users/`, a fully unauthenticated duplicate of `/signup`
+    that skipped its email/username uniqueness checks and wasn't used by
+    the app.
+  - 19 new tests in `test_endpoint_security.py` plus updates across the
+    existing router test files cover both the auth requirement and the
+    identity-spoofing scenarios directly.
 
 ### In progress
 
@@ -84,6 +164,14 @@ _Last updated: 2026-08-25_
   and testing on a real device (can't be verified without one). This was
   prompted by App Store guideline 4.8 — offering Google Sign-In without also
   offering Apple's own equivalent is close to a guaranteed review rejection.
+- **Notifications.** Reminders 1 day and 4 hours before a gameweek's first
+  kickoff, daily reminders while still unpicked, and a "pick processed with
+  result" notification. Deadline model: a pick is valid against any
+  not-yet-kicked-off fixture in the gameweek; the true miss cutoff is the
+  *last* fixture's kickoff, not the first. Agreed approach: extend the
+  existing polling/scheduler for now (push tokens table, Expo push
+  integration, notification log for idempotency), with a move to a Kafka-style
+  event-driven pipeline planned later, not immediately. Not started.
 
 ### Deferred (explicitly deprioritized, not urgent)
 
@@ -95,7 +183,6 @@ _Last updated: 2026-08-25_
   manual-approval-for-prod, plus feature flags and richer int test data.
   Explicitly told this isn't needed immediately. No `.github/workflows`
   exists yet.
-- **Notifications** (pick deadline reminders, result summaries).
 - **Live in-game score updates.**
 - **Rate limiting.** Low risk right now with a small, known user base.
 

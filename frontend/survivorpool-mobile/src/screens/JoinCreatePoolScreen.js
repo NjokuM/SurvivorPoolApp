@@ -23,6 +23,7 @@ export default function JoinCreatePoolScreen({ route, navigation }) {
   const [hasLives, setHasLives] = useState(true);
   const [totalLives, setTotalLives] = useState('3');
   const [maxPicksPerTeam, setMaxPicksPerTeam] = useState('2');
+  const [minPicksPerTeam, setMinPicksPerTeam] = useState(1);
   const [createdCode, setCreatedCode] = useState(null);
   const [createdPool, setCreatedPool] = useState(null);
   const [successModalVisible, setSuccessModalVisible] = useState(false);
@@ -58,6 +59,28 @@ export default function JoinCreatePoolScreen({ route, navigation }) {
     };
     fetchLeagues();
   }, []);
+
+  // Each league's format (team count vs. remaining gameweeks) determines
+  // how low max_picks_per_team can go without running out of distinct
+  // teams before the season ends - refetch whenever the league changes and
+  // default to the smallest viable value.
+  useEffect(() => {
+    if (!selectedLeague) return;
+    let cancelled = false;
+    const fetchLimits = async () => {
+      try {
+        const limits = await apiService.getPickLimits(selectedLeague.id);
+        if (cancelled) return;
+        setMinPicksPerTeam(limits.min_max_picks_per_team || 1);
+        setMaxPicksPerTeam(String(limits.default_max_picks_per_team || limits.min_max_picks_per_team || 2));
+      } catch (error) {
+        console.error('Error fetching pick limits:', error);
+        setMinPicksPerTeam(1);
+      }
+    };
+    fetchLimits();
+    return () => { cancelled = true; };
+  }, [selectedLeague]);
 
   const filteredLeagues = useMemo(() => {
     if (!leagueSearch.trim()) return leagues;
@@ -376,7 +399,7 @@ export default function JoinCreatePoolScreen({ route, navigation }) {
                   <View style={styles.counterContainer}>
                     <TouchableOpacity
                       style={styles.counterButton}
-                      onPress={() => setMaxPicksPerTeam(String(Math.max(1, parseInt(maxPicksPerTeam) - 1)))}
+                      onPress={() => setMaxPicksPerTeam(String(Math.max(minPicksPerTeam, parseInt(maxPicksPerTeam) - 1)))}
                     >
                       <Ionicons name="remove" size={20} color={colors.textPrimary} />
                     </TouchableOpacity>
@@ -388,6 +411,11 @@ export default function JoinCreatePoolScreen({ route, navigation }) {
                       <Ionicons name="add" size={20} color={colors.textPrimary} />
                     </TouchableOpacity>
                   </View>
+                  {selectedLeague && minPicksPerTeam > 1 && (
+                    <Text style={styles.modeHint}>
+                      Min {minPicksPerTeam} for this league to last the season
+                    </Text>
+                  )}
                 </View>
               </View>
 

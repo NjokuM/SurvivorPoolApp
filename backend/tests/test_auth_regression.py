@@ -231,10 +231,15 @@ class TestRefresh:
 
 class TestLogout:
     @pytest.mark.asyncio
-    async def test_logout_returns_success(self, client):
-        res = await client.post("/logout")
+    async def test_logout_returns_success(self, client, auth_headers):
+        res = await client.post("/logout", headers=auth_headers)
         assert res.status_code == 200
         assert res.json()["message"] == "Logged out"
+
+    @pytest.mark.asyncio
+    async def test_logout_without_token_returns_403(self, client):
+        res = await client.post("/logout")
+        assert res.status_code == 403
 
 
 # ==================== Full Auth Flow ====================

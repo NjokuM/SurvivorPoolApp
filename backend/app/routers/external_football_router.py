@@ -18,10 +18,14 @@ from app.services.scheduler import (
 )
 from sqlalchemy.future import select
 from app.models.competiton_data import Competition
+from app.dependencies.security import verify_cron
 
 router = APIRouter(
     prefix="/external/football",
-    tags=["Football API Sync"]
+    tags=["Football API Sync"],
+    # Server-to-server only (cron/ops), never called by the app itself -
+    # these hit the paid external API directly and aren't rate-limited.
+    dependencies=[Depends(verify_cron)],
 )
 
 # EXTERNAL LEAGUES

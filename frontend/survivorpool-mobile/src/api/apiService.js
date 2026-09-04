@@ -418,6 +418,18 @@ export const getCompetitions = async () => {
   return res.data;
 };
 
+// Valid range/default for max_picks_per_team in a league, given how many
+// gameweeks remain and how many teams exist - so a pool can't be set up
+// with a limit too low to reach the end of the season.
+export const getPickLimits = async (leagueId) => {
+  if (USE_MOCK_DATA) {
+    await mockDelay(200);
+    return { min_max_picks_per_team: 1, default_max_picks_per_team: 2 };
+  }
+  const res = await API.get(`/competitions/leagues/${leagueId}/pick-limits`);
+  return res.data;
+};
+
 // ==================== TEAMS ====================
 
 export const getTeams = async (competitionId = null) => {
@@ -695,6 +707,7 @@ export default {
   deletePool,
   getPoolLeaderboard,
   getCompetitions,
+  getPickLimits,
   getTeams,
   getFixtures,
   getFixtureById,

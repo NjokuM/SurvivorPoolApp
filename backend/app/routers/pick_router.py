@@ -6,19 +6,35 @@ from sqlalchemy import select
 from app.models.competiton_data import Fixture
 from app.models.pick import Pick
 from app.models.pool import Pool
+from app.models.user import User
 from app.schemas.pick_schema import PickCreate, PickRead, PickUpdate
 from app.crud.pick_crud import create_pick, get_user_picks, get_pool_picks, update_pick
 from app.crud.pool_crud import get_pool_user_stats, get_user_pools  # for validation
 from app.database import get_db
+from app.dependencies.security import get_current_user
 
 router = APIRouter(
     prefix="/picks",
     tags=["Picks"]
 )
 
+
+def _kickoff_has_passed(kickoff_time: datetime) -> bool:
+    """Some DB drivers (e.g. SQLite, which has no real timezone type) can
+    hand back a naive datetime for a tz-aware column once it's been through
+    a separate session's round trip. Treat a naive value as UTC rather than
+    letting the comparison below raise."""
+    if kickoff_time.tzinfo is None:
+        kickoff_time = kickoff_time.replace(tzinfo=timezone.utc)
+    return kickoff_time <= datetime.now(timezone.utc)
+
+
 # --- Create a Pick ---
 @router.post("/", response_model=PickRead, status_code=status.HTTP_201_CREATED)
-async def create_pick_route(pick: PickCreate, db: AsyncSession = Depends(get_db),force: bool = False):
+async def create_pick_route(pick: PickCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    # A pick is always made as the authenticated caller, regardless of what
+    # user_id the request body carries.
+    pick.user_id = current_user.id
 
     # 1️⃣ Validate user is part of the pool
     user_pools = await get_user_pools(db, pick.user_id)
@@ -48,9 +64,8 @@ async def create_pick_route(pick: PickCreate, db: AsyncSession = Depends(get_db)
     competition_id = pool.competition_id
 
     # 5️⃣ Fixture timing validation
-    if not force:
-        if fixture.kickoff_time <= datetime.now(timezone.utc):
-            raise HTTPException(status_code=400, detail="Cannot pick for a fixture that has already started")
+    if _kickoff_has_passed(fixture.kickoff_time):
+        raise HTTPException(status_code=400, detail="Cannot pick for a fixture that has already started")
 
     # 6️⃣ Team validation
     if pick.team_id not in [fixture.home_team_id, fixture.away_team_id]:
@@ -74,9 +89,11 @@ async def create_pick_route(pick: PickCreate, db: AsyncSession = Depends(get_db)
             detail=f"You've already made a pick for gameweek {fixture.gameweek}."
         )
 
-    # 8️⃣ Check if user still has lives
+    # 8️⃣ Check if user still has lives (league mode has no lives at all -
+    # total_lives is 0 for those pools, so this check would otherwise block
+    # every pick)
     user_stats = await get_pool_user_stats(db, pick.pool_id, pick.user_id)
-    if user_stats and user_stats.lives_left <= 0:
+    if pool.has_lives and user_stats and user_stats.lives_left <= 0:
         raise HTTPException(status_code=400, detail="User has no lives left in this pool")
 
     # 9️⃣ Ensure team hasn’t been picked more than allowed
@@ -103,14 +120,17 @@ async def create_pick_route(pick: PickCreate, db: AsyncSession = Depends(get_db)
 
 # --- Get all picks by a user ---
 @router.get("/user/{user_id}", response_model=List[PickRead])
-async def get_user_picks_route(user_id: int, db: AsyncSession = Depends(get_db)):
+async def get_user_picks_route(user_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="You can only view your own picks")
     return await get_user_picks(db, user_id)
 
 @router.put("/{pick_id}", response_model=PickRead)
 async def update_pick_route(
     pick_id: int,
     data: PickUpdate,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     # 1️⃣ Fetch existing pick
     result = await db.execute(select(Pick).filter(Pick.id == pick_id))
@@ -118,6 +138,9 @@ async def update_pick_route(
 
     if not pick:
         raise HTTPException(status_code=404, detail="Pick not found")
+
+    if pick.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="You can only update your own picks")
 
     # Fetch fixture + pool
     fixture_result = await db.execute(select(Fixture).filter(Fixture.id == pick.fixture_id))
@@ -130,7 +153,7 @@ async def update_pick_route(
         raise HTTPException(status_code=400, detail="Invalid pick data; fixture or pool missing")
 
     # 2️⃣ Prevent updating if match already started
-    if fixture.kickoff_time <= datetime.now(timezone.utc):
+    if _kickoff_has_passed(fixture.kickoff_time):
         raise HTTPException(
             status_code=400,
             detail="Cannot update pick after the fixture has started"
@@ -147,7 +170,7 @@ async def update_pick_route(
         if not new_fixture:
             raise HTTPException(status_code=404, detail="New fixture not found")
 
-        if new_fixture.kickoff_time <= datetime.now(timezone.utc):
+        if _kickoff_has_passed(new_fixture.kickoff_time):
             raise HTTPException(status_code=400, detail="Cannot pick a fixture that has already started")
 
         # must match same competition
@@ -207,5 +230,5 @@ async def update_pick_route(
 
 # --- Get all picks in a pool (optional, for leaderboard etc.) ---
 @router.get("/pool/{pool_id}", response_model=List[PickRead])
-async def get_pool_picks_route(pool_id: int, db: AsyncSession = Depends(get_db)):
+async def get_pool_picks_route(pool_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     return await get_pool_picks(db, pool_id)

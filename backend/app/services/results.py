@@ -307,6 +307,11 @@ async def process_gameweek_results(
     # Fold in anyone who never picked at all - but only once the picking
     # window has definitively closed.
     last_kickoff = max(f.kickoff_time for f in gameweek_fixtures)
+    if last_kickoff.tzinfo is None:
+        # Some DB drivers (e.g. SQLite, used in tests) can hand back a naive
+        # datetime for a tz-aware column - treat it as UTC rather than
+        # letting the comparison below raise.
+        last_kickoff = last_kickoff.replace(tzinfo=timezone.utc)
     if datetime.now(timezone.utc) >= last_kickoff:
         missed_accum = await _detect_missed_picks(db, competition_id, gameweek, gameweek_fixtures)
         for key, data in missed_accum.items():

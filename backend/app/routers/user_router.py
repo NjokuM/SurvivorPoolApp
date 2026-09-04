@@ -3,20 +3,21 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.models.user import User
-from app.schemas.user_schema import UserCreate, UserOut, ChangePasswordRequest
+from app.schemas.user_schema import UserOut, ChangePasswordRequest
 from app.crud import user_crud as crud_user
 from app.dependencies.security import get_current_user
 from app.utils.auth import verify_password, hash_password, create_access_token, create_refresh_token
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
-@router.post("/", response_model=UserOut, status_code=201)
-async def create_user(make_user: UserCreate, db: AsyncSession = Depends(get_db)):
-    return await crud_user.create_user(make_user, db)
+# Account creation happens exclusively through /signup (auth_router), which
+# enforces email/username uniqueness. This duplicate was unauthenticated,
+# skipped that validation entirely, and wasn't used by the app - removed
+# rather than gated, since there's no legitimate reason to keep it.
 
 @router.get("/{user_id}", response_model=UserOut)
-async def get_user(user_id : int, db: AsyncSession=Depends(get_db)):
-    user = await crud_user.get_user_by_id(user_id,db)
+async def get_user(user_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    user = await crud_user.get_user_by_id(user_id, db)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 

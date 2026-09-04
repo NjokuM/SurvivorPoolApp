@@ -1,13 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from typing import Optional
 from app.database import get_db
 from app.models.competiton_data import Competition, Team, Fixture
 from app.schemas.competition_schema import TeamFilters, FixtureFilters, LeagueFilters
+from app.crud import competition_crud
+from app.dependencies.security import get_current_user
 
 router = APIRouter(
     prefix="/competitions",
-    tags=["Competition Data (DB)"]
+    tags=["Competition Data (DB)"],
+    dependencies=[Depends(get_current_user)],
 )
 
 # LEAGUES
@@ -31,6 +35,22 @@ async def get_league_by_id_in_db(league_id: int, db: AsyncSession = Depends(get_
     if not league:
         raise HTTPException(404, "League not found")
     return league
+
+
+@router.get("/leagues/{league_id}/pick-limits")
+async def get_league_pick_limits(
+    league_id: int,
+    start_gameweek: Optional[int] = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """Valid range/default for a pool's max_picks_per_team in this league,
+    given how many gameweeks remain from start_gameweek (defaults to the
+    current gameweek, matching pool creation) and how many teams exist."""
+    result = await db.execute(select(Competition).where(Competition.id == league_id))
+    if not result.scalar_one_or_none():
+        raise HTTPException(404, "League not found")
+
+    return await competition_crud.get_pick_limits(db, league_id, start_gameweek)
 
 
 # TEAMS
