@@ -80,6 +80,10 @@ export const signup = async (userData) => {
   const res = await API.post('/signup', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
+  if (res.data.success) {
+    await storeTokens(res.data.access_token, res.data.refresh_token);
+    await storeUser(res.data.user);
+  }
   return res.data;
 };
 
@@ -575,6 +579,29 @@ export const updatePick = async (pickId, updateData) => {
   return res.data;
 };
 
+// ==================== ADMIN ====================
+
+// Add or correct another user's picks in a pool. Only the pool's creator
+// can call this (enforced server-side via JWT, not anything sent here).
+// picks: [{ fixture_id, team_id }, ...] - gameweeks not included are left
+// untouched. Backend replays the user's full pick history afterward, so
+// the response reflects fully recomputed lives/points, not just a delta.
+export const adminSetUserPicks = async (poolId, userId, picks) => {
+  if (USE_MOCK_DATA) {
+    await mockDelay(600);
+    return {
+      pool_id: poolId, user_id: userId, picks_applied: picks.length,
+      lives_left: 3, total_points: 0, eliminated_gameweek: null, gameweeks_replayed: [],
+    };
+  }
+  try {
+    const res = await API.put(`/admin/pools/${poolId}/users/${userId}/picks`, { picks });
+    return res.data;
+  } catch (error) {
+    throw new Error(getErrorMessage(error));
+  }
+};
+
 // ==================== HELPER FUNCTIONS ====================
 
 // Get enriched data for the pool detail screen
@@ -756,4 +783,5 @@ export default {
   registerPushToken,
   getNotificationPreferences,
   updateNotificationPreferences,
+  adminSetUserPicks,
 };

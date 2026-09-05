@@ -31,6 +31,28 @@ class TestSignup:
         assert "user_id" in data
 
     @pytest.mark.asyncio
+    async def test_signup_logs_user_in(self, client):
+        """Signup should return a usable token pair, same as /login - the
+        user shouldn't have to re-enter credentials on a second screen
+        right after creating the account."""
+        res = await client.post("/signup", data={
+            "userName": "autologin",
+            "email": "autologin@example.com",
+            "password": "securepass",
+            "firstName": "Auto",
+            "lastName": "Login",
+        })
+        data = res.json()
+        assert data["success"] is True
+        assert "access_token" in data
+        assert "refresh_token" in data
+        assert data["user"]["email"] == "autologin@example.com"
+
+        me_res = await client.get("/me", headers={"Authorization": f"Bearer {data['access_token']}"})
+        assert me_res.status_code == 200
+        assert me_res.json()["email"] == "autologin@example.com"
+
+    @pytest.mark.asyncio
     async def test_signup_duplicate_email(self, client, test_user):
         res = await client.post("/signup", data={
             "userName": "different",

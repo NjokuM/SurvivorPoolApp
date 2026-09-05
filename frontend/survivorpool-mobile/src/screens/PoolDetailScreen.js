@@ -925,6 +925,18 @@ export default function PoolDetailScreen({ route, navigation }) {
                       <Text style={styles.creatorBadgeText}>Creator</Text>
                     </View>
                   )}
+                  {isPoolCreator && (
+                    <TouchableOpacity
+                      style={{ marginLeft: 10, padding: 4 }}
+                      onPress={() => navigation.navigate('AdminEditPicks', {
+                        poolId,
+                        targetUserId: entry.user_id,
+                        targetUsername: entry.username,
+                      })}
+                    >
+                      <Ionicons name="create-outline" size={20} color={colors.accent} />
+                    </TouchableOpacity>
+                  )}
                 </View>
               ))}
             </View>

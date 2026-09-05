@@ -47,7 +47,17 @@ async def signup(
 
     new_user = await create_user(make_user, db)
 
-    return {"message": "User created successfully", "user_id": new_user.id}
+    # Log the user straight in, matching /login, /google and /apple - there's
+    # no reason to make someone who just created an account immediately
+    # re-enter the same credentials on a separate screen.
+    return {
+        "success": True,
+        "message": "User created successfully",
+        "user_id": new_user.id,
+        "access_token": create_access_token(new_user.id),
+        "refresh_token": create_refresh_token(new_user.id),
+        "user": {"id": new_user.id, "email": new_user.email},
+    }
 
 @router.post("/login")
 async def login(

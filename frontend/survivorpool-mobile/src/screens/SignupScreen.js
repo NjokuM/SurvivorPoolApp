@@ -38,7 +38,7 @@ export default function SignupScreen({ navigation }) {
     setIsLoading(true);
 
     try {
-      await apiService.signup({
+      const result = await apiService.signup({
         userName: username,
         email,
         password,
@@ -46,7 +46,10 @@ export default function SignupScreen({ navigation }) {
         lastName: lastname,
       });
 
-      navigation.navigate('Login');
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Main', params: { userId: result.user_id } }],
+      });
     } catch (error) {
       console.error('Signup error:', error.message);
       setError(error.message || 'An error occurred during signup');
