@@ -331,77 +331,80 @@ export const createStyles = (colors) => StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
   },
-  successCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 20,
-    padding: 24,
+  // Pool-created success modal
+  successModalContent: {
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
+    paddingVertical: 32,
   },
-  successIcon: {
-    marginBottom: 16,
+  successModalIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: colors.success + '20',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
   },
-  successTitle: {
+  successModalTitle: {
     fontSize: 24,
     fontWeight: '700',
     color: colors.textPrimary,
     marginBottom: 8,
   },
-  successSubtitle: {
+  successModalSubtitle: {
     fontSize: 14,
     color: colors.textMuted,
     textAlign: 'center',
     marginBottom: 24,
-  },
-  codeDisplay: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.accent + '15',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 20,
-    width: '100%',
-  },
-  codeDisplayText: {
-    flex: 1,
-    fontSize: 32,
-    fontWeight: '700',
-    color: colors.accent,
-    textAlign: 'center',
-    letterSpacing: 6,
-  },
-  copyButton: {
-    padding: 8,
-  },
-  shareOptions: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 20,
-  },
-  shareButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: colors.inputBackground,
-    paddingVertical: 12,
     paddingHorizontal: 20,
+  },
+  successModalCode: {
+    backgroundColor: colors.background,
+    borderRadius: 16,
+    padding: 20,
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 24,
+    borderWidth: 2,
+    borderColor: colors.accent,
+    borderStyle: 'dashed',
+  },
+  successModalCodeLabel: {
+    fontSize: 12,
+    color: colors.textMuted,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  successModalCodeText: {
+    fontSize: 36,
+    fontWeight: '800',
+    color: colors.accent,
+    letterSpacing: 4,
+  },
+  successModalCopyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
+    marginBottom: 20,
   },
-  shareButtonText: {
-    fontSize: 14,
+  successModalCopyText: {
+    color: colors.accent,
     fontWeight: '600',
-    color: colors.textPrimary,
+    marginLeft: 8,
   },
-  secondaryButton: {
-    marginTop: 12,
+  successModalGoButton: {
+    width: '100%',
+    marginBottom: 12,
+  },
+  successModalCreateAnother: {
     paddingVertical: 12,
   },
-  secondaryButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.accent,
+  successModalCreateAnotherText: {
+    color: colors.textMuted,
+    fontWeight: '500',
   },
 });

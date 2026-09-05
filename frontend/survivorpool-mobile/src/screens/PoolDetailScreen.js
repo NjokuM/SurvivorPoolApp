@@ -439,38 +439,6 @@ export default function PoolDetailScreen({ route, navigation }) {
                 );
               })}
             </View>
-
-            {/* Top 3 Leaderboard Preview */}
-            <View style={styles.leaderboardPreview}>
-              <View style={styles.cardHeader}>
-                <Text style={styles.cardTitle}>Leaderboard</Text>
-                <TouchableOpacity onPress={() => setActiveTab('standings')}>
-                  <Text style={styles.seeAllText}>See All</Text>
-                </TouchableOpacity>
-              </View>
-              {leaderboard.slice(0, 3).map((entry, index) => {
-                const userPickCount = allPoolPicks.filter(p => p.user_id === entry.user_id).length;
-                return (
-                  <View key={entry.user_id} style={styles.leaderboardRow}>
-                    <View style={[styles.rankBadge, index === 0 && styles.rankBadgeGold]}>
-                      <Text style={styles.rankText}>{index + 1}</Text>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.leaderboardName}>{entry.username}</Text>
-                      <Text style={{ fontSize: 11, color: colors.textMuted }}>
-                        {userPickCount} picks • {entry.total_points || 0} pts
-                      </Text>
-                    </View>
-                    {pool?.has_lives !== false && (
-                      <View style={styles.leaderboardLives}>
-                        <Ionicons name="heart" size={14} color={colors.heart} />
-                        <Text style={styles.leaderboardLivesText}>{entry.lives_left}</Text>
-                      </View>
-                    )}
-                  </View>
-                );
-              })}
-            </View>
           </>
         )}
 

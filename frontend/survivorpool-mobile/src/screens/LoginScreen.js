@@ -156,12 +156,7 @@ export default function LoginScreen({ navigation }) {
                 </View>
 
                 <View style={styles.inputGroup}>
-                  <View style={styles.labelRow}>
-                    <Text style={styles.label}>Password</Text>
-                    <TouchableOpacity onPress={() => {}}>
-                      <Text style={styles.forgotPassword}>Forgot password?</Text>
-                    </TouchableOpacity>
-                  </View>
+                  <Text style={styles.label}>Password</Text>
                   <TextInput
                     style={[styles.input, passwordFocused && styles.inputFocused]}
                     placeholder="••••••••"

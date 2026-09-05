@@ -1,4 +1,5 @@
 import { StyleSheet } from 'react-native';
+import { medals } from '../../theme/colors';
 
 export const createStyles = (colors) => StyleSheet.create({
   container: {
@@ -252,7 +253,7 @@ export const createStyles = (colors) => StyleSheet.create({
     borderBottomColor: colors.border,
   },
   weekPickRowHighlight: {
-    backgroundColor: '#9333EA' + '15',
+    backgroundColor: colors.highlight + '15',
     marginHorizontal: -16,
     paddingHorizontal: 16,
     borderRadius: 8,
@@ -272,7 +273,7 @@ export const createStyles = (colors) => StyleSheet.create({
     marginRight: 10,
   },
   weekPickAvatarHighlight: {
-    backgroundColor: '#9333EA' + '30',
+    backgroundColor: colors.highlight + '30',
   },
   weekPickAvatarText: {
     fontSize: 12,
@@ -280,7 +281,7 @@ export const createStyles = (colors) => StyleSheet.create({
     color: colors.textMuted,
   },
   weekPickAvatarTextHighlight: {
-    color: '#9333EA',
+    color: colors.highlight,
   },
   weekPickUsername: {
     fontSize: 14,
@@ -289,7 +290,7 @@ export const createStyles = (colors) => StyleSheet.create({
   },
   weekPickUsernameHighlight: {
     fontWeight: '700',
-    color: '#9333EA',
+    color: colors.highlight,
   },
   weekPickTeamBadge: {
     backgroundColor: colors.warning + '20',
@@ -325,53 +326,6 @@ export const createStyles = (colors) => StyleSheet.create({
     color: colors.textMuted,
     fontStyle: 'italic',
   },
-  leaderboardPreview: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  leaderboardRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  rankBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: colors.inputBackground,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  rankBadgeGold: {
-    backgroundColor: '#FFD700',
-  },
-  rankText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  leaderboardName: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  leaderboardLives: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  leaderboardLivesText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.heart,
-  },
   // Make Pick Tab Styles
   pickHeader: {
     marginBottom: 20,
@@ -406,8 +360,8 @@ export const createStyles = (colors) => StyleSheet.create({
     backgroundColor: colors.accent + '10',
   },
   teamCardUserPick: {
-    borderColor: '#9333EA',
-    backgroundColor: '#9333EA' + '20',
+    borderColor: colors.highlight,
+    backgroundColor: colors.highlight + '20',
   },
   teamCardDisabled: {
     opacity: 0.5,
@@ -416,7 +370,7 @@ export const createStyles = (colors) => StyleSheet.create({
     position: 'absolute',
     top: 4,
     left: 4,
-    backgroundColor: '#9333EA',
+    backgroundColor: colors.highlight,
     paddingVertical: 2,
     paddingHorizontal: 6,
     borderRadius: 4,
@@ -435,20 +389,20 @@ export const createStyles = (colors) => StyleSheet.create({
     zIndex: 1,
   },
   teamLogo: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: colors.inputBackground,
     marginBottom: 4,
   },
   teamName: {
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '600',
     color: colors.textPrimary,
     textAlign: 'center',
   },
   teamFixture: {
-    fontSize: 8,
+    fontSize: 9,
     color: colors.textMuted,
     textAlign: 'center',
   },
@@ -482,35 +436,24 @@ export const createStyles = (colors) => StyleSheet.create({
   },
   matchStartedBanner: {
     position: 'absolute',
-    top: 0,
+    top: 4,
     left: 0,
     right: 0,
-    bottom: 0,
-    overflow: 'hidden',
+    flexDirection: 'row',
+    justifyContent: 'center',
     zIndex: 10,
-    borderRadius: 12,
   },
   matchStartedRibbon: {
-    position: 'absolute',
-    top: 12,
-    left: -30,
-    width: 100,
     backgroundColor: colors.error,
-    paddingVertical: 3,
-    transform: [{ rotate: '-45deg' }],
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 2,
-    elevation: 3,
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderRadius: 4,
   },
   matchStartedText: {
-    fontSize: 8,
+    fontSize: 6,
     fontWeight: '800',
     color: '#fff',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    textAlign: 'center',
   },
   confirmContainer: {
     marginTop: 20,
@@ -555,8 +498,8 @@ export const createStyles = (colors) => StyleSheet.create({
     borderColor: colors.border,
   },
   standingsRowHighlight: {
-    borderColor: '#9333EA',
-    backgroundColor: '#9333EA' + '15',
+    borderColor: colors.highlight,
+    backgroundColor: colors.highlight + '15',
   },
   standingsRank: {
     width: 32,
@@ -568,13 +511,13 @@ export const createStyles = (colors) => StyleSheet.create({
     marginRight: 12,
   },
   standingsRankGold: {
-    backgroundColor: '#FFD700',
+    backgroundColor: medals.gold,
   },
   standingsRankSilver: {
-    backgroundColor: '#C0C0C0',
+    backgroundColor: medals.silver,
   },
   standingsRankBronze: {
-    backgroundColor: '#CD7F32',
+    backgroundColor: medals.bronze,
   },
   standingsRankText: {
     fontSize: 14,
@@ -590,7 +533,7 @@ export const createStyles = (colors) => StyleSheet.create({
     color: colors.textPrimary,
   },
   standingsNameHighlight: {
-    color: '#9333EA',
+    color: colors.highlight,
   },
   standingsPoints: {
     fontSize: 12,

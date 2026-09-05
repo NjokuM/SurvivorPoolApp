@@ -187,15 +187,6 @@ export default function JoinCreatePoolScreen({ route, navigation }) {
     }
   };
 
-  const copyToClipboard = async () => {
-    await Clipboard.setStringAsync(createdCode);
-    Toast.show({
-      type: 'success',
-      text1: 'Copied!',
-      text2: 'Code copied to clipboard',
-    });
-  };
-
   return (
     <View style={styles.container}>
       <StatusBar barStyle={colors.statusBar} backgroundColor={colors.background} />
@@ -487,63 +478,6 @@ export default function JoinCreatePoolScreen({ route, navigation }) {
             </View>
           )}
 
-          {/* SUCCESS STATE - Pool Created */}
-          {activeTab === 'create' && createdCode && (
-            <View style={styles.successCard}>
-              <View style={styles.successIcon}>
-                <Ionicons name="checkmark-circle" size={64} color={colors.success} />
-              </View>
-              <Text style={styles.successTitle}>Pool Created!</Text>
-              <Text style={styles.successSubtitle}>
-                Share this code with friends to invite them
-              </Text>
-
-              <View style={styles.codeDisplay}>
-                <Text style={styles.codeDisplayText}>{createdCode}</Text>
-                <TouchableOpacity style={styles.copyButton} onPress={copyToClipboard}>
-                  <Ionicons name="copy" size={24} color={colors.accent} />
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.shareOptions}>
-                <TouchableOpacity style={styles.shareButton}>
-                  <Ionicons name="share-social" size={20} color={colors.textPrimary} />
-                  <Text style={styles.shareButtonText}>Share</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.shareButton}>
-                  <Ionicons name="chatbubble" size={20} color={colors.textPrimary} />
-                  <Text style={styles.shareButtonText}>Message</Text>
-                </TouchableOpacity>
-              </View>
-
-              <TouchableOpacity
-                style={styles.primaryButton}
-                onPress={() => {
-                  // Navigate directly to the created pool
-                  navigation.navigate('PoolDetail', { 
-                    poolId: createdPool?.id, 
-                    userId, 
-                    poolName: createdPool?.name || 'Pool'
-                  });
-                  setCreatedCode(null);
-                  setCreatedPool(null);
-                }}
-              >
-                <Text style={styles.primaryButtonText}>Go to Pool</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.secondaryButton}
-                onPress={() => {
-                  setCreatedCode(null);
-                  setCreatedPool(null);
-                }}
-              >
-                <Text style={styles.secondaryButtonText}>Create Another Pool</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -634,75 +568,23 @@ export default function JoinCreatePoolScreen({ route, navigation }) {
         onRequestClose={() => setSuccessModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { alignItems: 'center', paddingVertical: 32 }]}>
-            {/* Success Icon */}
-            <View style={{
-              width: 80,
-              height: 80,
-              borderRadius: 40,
-              backgroundColor: colors.success + '20',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginBottom: 20,
-            }}>
+          <View style={[styles.modalContent, styles.successModalContent]}>
+            <View style={styles.successModalIcon}>
               <Ionicons name="checkmark-circle" size={50} color={colors.success} />
             </View>
 
-            <Text style={{
-              fontSize: 24,
-              fontWeight: '700',
-              color: colors.textPrimary,
-              marginBottom: 8,
-            }}>Pool Created!</Text>
-            
-            <Text style={{
-              fontSize: 14,
-              color: colors.textMuted,
-              textAlign: 'center',
-              marginBottom: 24,
-              paddingHorizontal: 20,
-            }}>
+            <Text style={styles.successModalTitle}>Pool Created!</Text>
+            <Text style={styles.successModalSubtitle}>
               Share this code with friends to invite them to your pool
             </Text>
 
-            {/* Session Code Display */}
-            <View style={{
-              backgroundColor: colors.background,
-              borderRadius: 16,
-              padding: 20,
-              width: '100%',
-              alignItems: 'center',
-              marginBottom: 24,
-              borderWidth: 2,
-              borderColor: colors.accent,
-              borderStyle: 'dashed',
-            }}>
-              <Text style={{
-                fontSize: 12,
-                color: colors.textMuted,
-                marginBottom: 8,
-                textTransform: 'uppercase',
-                letterSpacing: 1,
-              }}>Session Code</Text>
-              <Text style={{
-                fontSize: 36,
-                fontWeight: '800',
-                color: colors.accent,
-                letterSpacing: 4,
-              }}>{createdCode || '------'}</Text>
+            <View style={styles.successModalCode}>
+              <Text style={styles.successModalCodeLabel}>Session Code</Text>
+              <Text style={styles.successModalCodeText}>{createdCode || '------'}</Text>
             </View>
 
-            {/* Copy Button */}
             <TouchableOpacity
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                backgroundColor: colors.surface,
-                paddingVertical: 12,
-                paddingHorizontal: 24,
-                borderRadius: 12,
-                marginBottom: 20,
-              }}
+              style={styles.successModalCopyButton}
               onPress={async () => {
                 if (createdCode) {
                   await Clipboard.setStringAsync(createdCode);
@@ -715,16 +597,11 @@ export default function JoinCreatePoolScreen({ route, navigation }) {
               }}
             >
               <Ionicons name="copy-outline" size={20} color={colors.accent} />
-              <Text style={{
-                color: colors.accent,
-                fontWeight: '600',
-                marginLeft: 8,
-              }}>Copy Code</Text>
+              <Text style={styles.successModalCopyText}>Copy Code</Text>
             </TouchableOpacity>
 
-            {/* Go to Pool Button */}
             <TouchableOpacity
-              style={[styles.primaryButton, { width: '100%', marginBottom: 12 }]}
+              style={[styles.primaryButton, styles.successModalGoButton]}
               onPress={() => {
                 setSuccessModalVisible(false);
                 navigation.navigate('PoolDetail', {
@@ -739,21 +616,15 @@ export default function JoinCreatePoolScreen({ route, navigation }) {
               <Text style={styles.primaryButtonText}>Go to Pool</Text>
             </TouchableOpacity>
 
-            {/* Create Another Button */}
             <TouchableOpacity
-              style={{
-                paddingVertical: 12,
-              }}
+              style={styles.successModalCreateAnother}
               onPress={() => {
                 setSuccessModalVisible(false);
                 setCreatedCode(null);
                 setCreatedPool(null);
               }}
             >
-              <Text style={{
-                color: colors.textMuted,
-                fontWeight: '500',
-              }}>Create Another Pool</Text>
+              <Text style={styles.successModalCreateAnotherText}>Create Another Pool</Text>
             </TouchableOpacity>
           </View>
         </View>

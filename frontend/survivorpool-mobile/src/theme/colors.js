@@ -52,7 +52,11 @@ export const darkColors = {
   // Lives/Hearts
   heart: '#e90052',
   heartEmpty: 'rgba(233, 0, 82, 0.3)',
-  
+
+  // "This is you" / "your pick" highlight - reuses info blue rather than
+  // introducing a new hue into an already-busy palette.
+  highlight: '#3b82f6',
+
   // Status bar
   statusBar: 'light-content',
 };
@@ -110,13 +114,25 @@ export const lightColors = {
   // Lives/Hearts
   heart: '#e90052',
   heartEmpty: 'rgba(233, 0, 82, 0.3)',
-  
+
+  // "This is you" / "your pick" highlight - reuses info blue rather than
+  // introducing a new hue into an already-busy palette.
+  highlight: '#3b82f6',
+
   // Status bar
   statusBar: 'dark-content',
 };
 
 // Legacy export for backwards compatibility
 export const colors = lightColors;
+
+// Standings rank medals - a universal metaphor, not a theme-dependent
+// content color, so these stay constant across light/dark.
+export const medals = {
+  gold: '#FFD700',
+  silver: '#C0C0C0',
+  bronze: '#CD7F32',
+};
 
 // Theme Context
 const ThemeContext = createContext({

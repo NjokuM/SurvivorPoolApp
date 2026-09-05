@@ -189,12 +189,11 @@ Thanks!`,
           label: 'Edit Profile', 
           onPress: () => navigation.navigate('EditProfile', { userId }),
         },
-        { 
-          icon: 'lock-closed-outline', 
-          label: 'Change Password', 
+        {
+          icon: 'lock-closed-outline',
+          label: 'Change Password',
           onPress: () => navigation.navigate('ChangePassword', { userId }),
         },
-        { icon: 'mail-outline', label: 'Email Preferences', onPress: () => {} },
       ],
     },
     {
