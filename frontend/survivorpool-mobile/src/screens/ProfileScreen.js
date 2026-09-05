@@ -7,6 +7,7 @@ import apiService from '../api/apiService';
 import { createStyles } from './styles/ProfileScreen.styles';
 
 const SUPPORT_EMAIL = 'bremorebros60@gmail.com';
+const PRIVACY_POLICY_URL = 'https://njokum.github.io/SurvivorPoolApp/privacy-policy.html';
 
 export default function ProfileScreen({ route, navigation }) {
   const { userId } = route.params;
@@ -273,20 +274,12 @@ Thanks!`,
             [{ text: 'OK' }]
           ),
         },
-        { 
-          icon: 'shield-checkmark-outline', 
-          label: 'Privacy Policy', 
-          onPress: () => Alert.alert(
-            'Privacy Policy',
-            'Your privacy matters to us.\n\n' +
-            '• We collect only essential data (email, username)\n' +
-            '• Your data is never sold to third parties\n' +
-            '• Pick history is stored securely\n' +
-            '• You can request data deletion anytime\n\n' +
-            'Full policy at survivorpool.app/privacy (coming soon)\n\n' +
-            'Questions? Email: ' + SUPPORT_EMAIL,
-            [{ text: 'OK' }]
-          ),
+        {
+          icon: 'shield-checkmark-outline',
+          label: 'Privacy Policy',
+          onPress: () => Linking.openURL(PRIVACY_POLICY_URL).catch(() => {
+            Alert.alert('Error', 'Unable to open the privacy policy. Please visit ' + PRIVACY_POLICY_URL);
+          }),
         },
       ],
     },
