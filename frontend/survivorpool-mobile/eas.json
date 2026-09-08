@@ -23,6 +23,16 @@
         "APP_ENV": "int"
       }
     },
+    "simulator": {
+      "distribution": "internal",
+      "ios": {
+        "simulator": true,
+        "buildConfiguration": "Release"
+      },
+      "env": {
+        "APP_ENV": "int"
+      }
+    },
     "preview": {
       "distribution": "internal",
       "ios": {
