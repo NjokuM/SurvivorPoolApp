@@ -10,7 +10,7 @@ from app.crud.pool_crud import get_pool_user_stats
 from app.dependencies.admin import require_pool_admin
 from app.dependencies.security import verify_cron
 from app.schemas.pick_schema import AdminPicksImportRequest, AdminPicksImportResponse
-from app.services.results import process_gameweek_results
+from app.services.results import process_gameweek_results, recompute_all_pool_statuses
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -28,6 +28,18 @@ async def process_results(
         apply_decrements_for_eliminated=False
     )
     return summary
+
+
+@router.post("/recompute-pool-status", dependencies=[Depends(verify_cron)])
+async def recompute_pool_status(db: AsyncSession = Depends(get_db)):
+    """One-off/backfill trigger: re-check every active pool against the
+    archiving criteria (season concluded, or a lives pool already decided).
+    Normally this happens automatically as each gameweek is processed -
+    this exists to catch pools whose season concluded before that logic
+    existed, or where a gameweek had nothing to process and the automatic
+    check never ran."""
+    archived = await recompute_all_pool_statuses(db)
+    return {"pools_archived": archived}
 
 
 @router.put("/pools/{pool_id}/users/{user_id}/picks", response_model=AdminPicksImportResponse)

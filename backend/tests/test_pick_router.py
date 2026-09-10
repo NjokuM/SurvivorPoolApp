@@ -16,6 +16,7 @@ import pytest
 from datetime import datetime, timedelta, timezone
 from app.models.pool import Pool, PoolUserStats
 from app.models.competiton_data import Fixture
+from app.models.pick import Pick, PickResultEnum
 from app.utils.auth import create_access_token
 
 
@@ -170,3 +171,56 @@ class TestMaxPicksPerTeam:
         })
         assert resp2.status_code == 400
         assert "already picked this team" in resp2.json()["detail"].lower()
+
+
+class TestGetUserPicksWithNP:
+    """Regression test: PickRead's result enum was missing NP (the
+    "No Pick" value used for a missed gameweek, see app.models.pick),
+    so GET /picks/user/{id} raised a response-validation 500 for any user
+    who'd ever missed a pick - which silently broke ProfileScreen, since
+    it loads this alongside the user's own data in one Promise.all."""
+
+    @pytest.mark.asyncio
+    async def test_returns_200_with_np_pick(
+        self, client, db_session, test_user, test_competition, test_teams
+    ):
+        home, away = test_teams
+        pool = await _seed_pool(db_session, test_competition.id, has_lives=True, total_lives=3)
+        await _join_pool(db_session, pool.id, test_user.id, lives_left=2)
+
+        fixture = await _future_fixture(db_session, test_competition.id, home.id, away.id, gameweek=1)
+        np_pick = Pick(
+            pool_id=pool.id, user_id=test_user.id,
+            team_id=None, fixture_id=fixture.id,
+            competition_id=test_competition.id,
+            result=PickResultEnum.NP, points=0,
+        )
+        db_session.add(np_pick)
+        await db_session.commit()
+
+        resp = await client.get(f"/picks/user/{test_user.id}", headers=_auth_headers(test_user))
+
+        assert resp.status_code == 200, resp.text
+        assert resp.json()[0]["result"] == "NP"
+
+
+class TestGetUserPoolsHasLives:
+    """GET /users/{id}/pools spans multiple pools of possibly different
+    modes at once, so it's the one place that needs has_lives attached
+    per-row (used by ProfileScreen to compute a mode-aware win rate)."""
+
+    @pytest.mark.asyncio
+    async def test_has_lives_reflects_each_pools_mode(
+        self, client, db_session, test_user, test_competition
+    ):
+        survivor_pool = await _seed_pool(db_session, test_competition.id, has_lives=True, total_lives=3)
+        league_pool = await _seed_pool(db_session, test_competition.id, has_lives=False, total_lives=0)
+        await _join_pool(db_session, survivor_pool.id, test_user.id, lives_left=3)
+        await _join_pool(db_session, league_pool.id, test_user.id, lives_left=0)
+
+        resp = await client.get(f"/users/{test_user.id}/pools", headers=_auth_headers(test_user))
+
+        assert resp.status_code == 200, resp.text
+        by_pool_id = {row["pool_id"]: row["has_lives"] for row in resp.json()}
+        assert by_pool_id[survivor_pool.id] is True
+        assert by_pool_id[league_pool.id] is False

@@ -49,6 +49,11 @@ class PoolUserStatsResponse(PoolUserStatsBase):
     eliminated_gameweek: Optional[int] = None
     created_at: datetime
     updated_at : datetime
+    # Only populated by GET /users/{user_id}/pools, which spans multiple
+    # pools at once and has no other way to tell survivor from league mode -
+    # other endpoints that return this per a single already-known pool leave
+    # it unset since the caller already has pool.has_lives.
+    has_lives: Optional[bool] = None
 
     class Config:
         orm_mode = True

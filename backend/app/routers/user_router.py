@@ -30,6 +30,18 @@ async def get_user(user_id: int, db: AsyncSession = Depends(get_db), current_use
 
     return user
 
+@router.delete("/me")
+async def delete_account(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Permanently delete the caller's account and all associated data.
+    Required for App Store review (Guideline 5.1.1(v)) - not a
+    deactivation, the row and everything tied to it are actually gone."""
+    await crud_user.delete_user_account(db, current_user.id)
+    return {"message": "Account deleted"}
+
+
 @router.post("/change-password")
 async def change_password(
     body: ChangePasswordRequest,

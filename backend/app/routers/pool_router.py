@@ -103,7 +103,20 @@ async def get_user_pools(user_id: int, db: AsyncSession = Depends(get_db), curre
         raise HTTPException(status_code=403, detail="You can only view your own pools")
     try:
         pools = await pool_crud.get_user_pools(db, user_id)
-        return pools
+        return [
+            PoolUserStatsResponse(
+                id=p.id,
+                pool_id=p.pool_id,
+                user_id=p.user_id,
+                lives_left=p.lives_left,
+                total_points=p.total_points,
+                eliminated_gameweek=p.eliminated_gameweek,
+                created_at=p.created_at,
+                updated_at=p.updated_at,
+                has_lives=p.pool.has_lives if p.pool else True,
+            )
+            for p in pools
+        ]
     except HTTPException as e:
         raise e
     except Exception as e:

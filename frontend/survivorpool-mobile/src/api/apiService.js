@@ -140,6 +140,23 @@ export const logout = async () => {
   }
 };
 
+// Permanently deletes the current user's account and everything tied to
+// it (App Store requires real deletion, not deactivation). Clears local
+// tokens the same way logout does, since the account - and therefore any
+// token for it - no longer exists either way.
+export const deleteAccount = async () => {
+  if (USE_MOCK_DATA) {
+    await mockDelay(300);
+    return { message: 'Account deleted' };
+  }
+  try {
+    const res = await API.delete('/users/me');
+    return res.data;
+  } finally {
+    await clearAuth();
+  }
+};
+
 // Called once on app launch to silently resume a persisted session.
 // Returns the current user if a stored access/refresh token pair is still
 // valid (the API layer transparently refreshes an expired access token),
@@ -757,6 +774,7 @@ export default {
   loginWithGoogle,
   loginWithApple,
   logout,
+  deleteAccount,
   restoreSession,
   changePassword,
   getUser,

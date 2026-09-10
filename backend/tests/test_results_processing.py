@@ -682,3 +682,240 @@ class TestNPPickRecord:
         )
         np_picks = np_res.scalars().all()
         assert len(np_picks) == 0, "No NP record for already eliminated user"
+
+
+# ==================== Pool Archiving Tests ====================
+
+class TestPoolArchiving:
+    """A pool is archived (is_active flips to False) once there's nothing
+    left to play for: a lives pool with at most one survivor, or any pool
+    once its competition's final gameweek has fully finished."""
+
+    async def _seed_two_user_lives_pool(self, db, *, gameweek=10, total_gameweeks=None):
+        """Two users, one fixture each user picks a different team for, so
+        one wins and one loses - lets us control exactly who survives."""
+        comp = Competition(
+            external_id=39, name="Premier League", season=2025,
+            country="England", type="League", logo="https://example.com/pl.png",
+        )
+        db.add(comp)
+        await db.flush()
+
+        home_team = Team(
+            external_id=33, name="Man United", short_name="MUN",
+            competition_id=comp.id, venue_name="Old Trafford", logo="x",
+        )
+        away_team = Team(
+            external_id=40, name="Liverpool", short_name="LIV",
+            competition_id=comp.id, venue_name="Anfield", logo="x",
+        )
+        db.add_all([home_team, away_team])
+        await db.flush()
+
+        kickoff = datetime.now(timezone.utc) - timedelta(hours=3)
+        fixture = Fixture(
+            external_id=1001, competition_id=comp.id,
+            home_team_id=home_team.id, away_team_id=away_team.id,
+            gameweek=gameweek, kickoff_time=kickoff,
+            status="FT", home_goals=2, away_goals=0,  # home wins
+        )
+        db.add(fixture)
+        await db.flush()
+
+        if total_gameweeks and total_gameweeks != gameweek:
+            # A fixture in a later, not-yet-played gameweek, so this isn't
+            # actually the final gameweek of the competition.
+            db.add(Fixture(
+                external_id=1002, competition_id=comp.id,
+                home_team_id=home_team.id, away_team_id=away_team.id,
+                gameweek=total_gameweeks,
+                kickoff_time=datetime.now(timezone.utc) + timedelta(days=7),
+                status="NS",
+            ))
+            await db.flush()
+
+        pool = Pool(
+            session_code="ARCH01", name="Archive Test Pool",
+            competition_id=comp.id, start_gameweek=1,
+            max_picks_per_team=2, total_lives=1, has_lives=True, is_active=True,
+        )
+        db.add(pool)
+        await db.flush()
+
+        winner = User(userName="winner", email="winner@test.com", password=hash_password("pass"), firstName="W", lastName="Survivor")
+        loser = User(userName="loser", email="loser@test.com", password=hash_password("pass"), firstName="L", lastName="Eliminated")
+        db.add_all([winner, loser])
+        await db.flush()
+
+        winner_stats = PoolUserStats(pool_id=pool.id, user_id=winner.id, total_points=0, lives_left=1)
+        loser_stats = PoolUserStats(pool_id=pool.id, user_id=loser.id, total_points=0, lives_left=1)
+        db.add_all([winner_stats, loser_stats])
+        await db.flush()
+
+        db.add(Pick(pool_id=pool.id, user_id=winner.id, team_id=home_team.id, fixture_id=fixture.id, competition_id=comp.id))
+        db.add(Pick(pool_id=pool.id, user_id=loser.id, team_id=away_team.id, fixture_id=fixture.id, competition_id=comp.id))
+        await db.commit()
+
+        return {
+            "comp": comp, "pool": pool, "fixture": fixture,
+            "winner": winner, "winner_stats": winner_stats,
+            "loser": loser, "loser_stats": loser_stats,
+        }
+
+    @pytest.mark.asyncio
+    async def test_lives_pool_archived_once_one_survivor_remains(self, db_session):
+        # total_gameweeks=20 keeps this mid-season, isolating the
+        # lives-decided path from the separate season-concluded path.
+        data = await self._seed_two_user_lives_pool(db_session, gameweek=10, total_gameweeks=20)
+
+        await process_gameweek_results(db_session, data["comp"].id, 10)
+
+        await db_session.refresh(data["pool"])
+        assert data["pool"].is_active is False
+
+    @pytest.mark.asyncio
+    async def test_lives_pool_stays_active_with_two_survivors(self, db_session):
+        """Both users on 2 lives - the loser drops to 1 life but is still
+        a survivor, so there's still a contest. total_gameweeks=20 keeps
+        this mid-season, isolating from the season-concluded path."""
+        data = await self._seed_two_user_lives_pool(db_session, gameweek=10, total_gameweeks=20)
+        data["winner_stats"].lives_left = 2
+        data["loser_stats"].lives_left = 2
+        await db_session.commit()
+
+        await process_gameweek_results(db_session, data["comp"].id, 10)
+
+        await db_session.refresh(data["pool"])
+        assert data["pool"].is_active is True
+
+    @pytest.mark.asyncio
+    async def test_league_pool_not_archived_by_elimination_logic(self, db_session):
+        """League mode has no elimination at all, so the "decided" check
+        must never apply to it - only a concluded season archives it."""
+        data = await self._seed_two_user_lives_pool(
+            db_session, gameweek=10, total_gameweeks=20,
+        )
+        data["pool"].has_lives = False
+        await db_session.commit()
+
+        await process_gameweek_results(db_session, data["comp"].id, 10)
+
+        await db_session.refresh(data["pool"])
+        assert data["pool"].is_active is True
+
+    @pytest.mark.asyncio
+    async def test_season_concluded_archives_pool_regardless_of_mode(self, db_session):
+        """Final gameweek of the competition finishing archives the pool
+        even with multiple survivors still in it."""
+        data = await self._seed_two_user_lives_pool(db_session, gameweek=10)
+        data["winner_stats"].lives_left = 2
+        data["loser_stats"].lives_left = 2
+        await db_session.commit()
+        # gameweek 10 is the only (and therefore final) gameweek seeded.
+
+        await process_gameweek_results(db_session, data["comp"].id, 10)
+
+        await db_session.refresh(data["pool"])
+        assert data["pool"].is_active is False
+
+    @pytest.mark.asyncio
+    async def test_not_archived_when_processing_a_non_final_gameweek(self, db_session):
+        """A later gameweek's fixture already exists (not yet played), so
+        gameweek 10 finishing isn't the end of the season."""
+        data = await self._seed_two_user_lives_pool(
+            db_session, gameweek=10, total_gameweeks=20,
+        )
+        data["winner_stats"].lives_left = 2
+        data["loser_stats"].lives_left = 2
+        await db_session.commit()
+
+        await process_gameweek_results(db_session, data["comp"].id, 10)
+
+        await db_session.refresh(data["pool"])
+        assert data["pool"].is_active is True
+
+    @pytest.mark.asyncio
+    async def test_already_inactive_pool_is_left_alone(self, db_session):
+        """A pool archived some other way shouldn't be touched again (no
+        crash, no reactivation) just because a gameweek gets reprocessed."""
+        data = await self._seed_two_user_lives_pool(db_session, gameweek=10)
+        data["pool"].is_active = False
+        await db_session.commit()
+
+        await process_gameweek_results(db_session, data["comp"].id, 10)
+
+        await db_session.refresh(data["pool"])
+        assert data["pool"].is_active is False
+
+
+class TestRecomputeAllPoolStatuses:
+    """The one-off backfill used to catch pools that were already decided
+    or already past their final gameweek before this feature existed."""
+
+    @pytest.mark.asyncio
+    async def test_archives_an_already_decided_pool_without_reprocessing(self, db_session):
+        from app.services.results import recompute_all_pool_statuses
+
+        comp = Competition(
+            external_id=39, name="Premier League", season=2025,
+            country="England", type="League", logo="x",
+        )
+        db_session.add(comp)
+        await db_session.flush()
+
+        pool = Pool(
+            session_code="BACKFIL1", name="Old Pool", competition_id=comp.id,
+            start_gameweek=1, max_picks_per_team=2, total_lives=3,
+            has_lives=True, is_active=True,
+        )
+        db_session.add(pool)
+        await db_session.flush()
+
+        winner = User(userName="oldwinner", email="oldwinner@test.com", password=hash_password("pass"), firstName="W", lastName="Old")
+        loser = User(userName="oldloser", email="oldloser@test.com", password=hash_password("pass"), firstName="L", lastName="Old")
+        db_session.add_all([winner, loser])
+        await db_session.flush()
+
+        db_session.add(PoolUserStats(pool_id=pool.id, user_id=winner.id, total_points=10, lives_left=1))
+        db_session.add(PoolUserStats(pool_id=pool.id, user_id=loser.id, total_points=5, lives_left=0))
+        await db_session.commit()
+
+        archived = await recompute_all_pool_statuses(db_session)
+
+        assert archived == 1
+        await db_session.refresh(pool)
+        assert pool.is_active is False
+
+    @pytest.mark.asyncio
+    async def test_leaves_an_undecided_pool_active(self, db_session):
+        from app.services.results import recompute_all_pool_statuses
+
+        comp = Competition(
+            external_id=39, name="Premier League", season=2025,
+            country="England", type="League", logo="x",
+        )
+        db_session.add(comp)
+        await db_session.flush()
+
+        pool = Pool(
+            session_code="BACKFIL2", name="Ongoing Pool", competition_id=comp.id,
+            start_gameweek=1, max_picks_per_team=2, total_lives=3,
+            has_lives=True, is_active=True,
+        )
+        db_session.add(pool)
+        await db_session.flush()
+
+        p1 = User(userName="p1", email="p1@test.com", password=hash_password("pass"), firstName="P", lastName="One")
+        p2 = User(userName="p2", email="p2@test.com", password=hash_password("pass"), firstName="P", lastName="Two")
+        db_session.add_all([p1, p2])
+        await db_session.flush()
+
+        db_session.add(PoolUserStats(pool_id=pool.id, user_id=p1.id, total_points=10, lives_left=2))
+        db_session.add(PoolUserStats(pool_id=pool.id, user_id=p2.id, total_points=5, lives_left=1))
+        await db_session.commit()
+
+        archived = await recompute_all_pool_statuses(db_session)
+
+        assert archived == 0
+        await db_session.refresh(pool)
+        assert pool.is_active is True

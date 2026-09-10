@@ -7,6 +7,7 @@ class PickResultEnum(str, Enum):
     WIN = "WIN"
     LOSS = "LOSS"
     DRAW = "DRAW"
+    NP = "NP"  # No Pick - missed the gameweek entirely, see app.models.pick
 
 class PickBase(BaseModel):
     pool_id: int
@@ -22,6 +23,9 @@ class PickRead(PickBase):
     """Returned when reading picks from DB."""
     id: int
     competition_id : int
+    # An NP ("No Pick") record has no team - overrides PickBase's required
+    # int, which only holds for a real submitted pick (PickCreate).
+    team_id: Optional[int] = None
     home_score: Optional[int] = None
     away_score: Optional[int] = None
     result: Optional[PickResultEnum] = None

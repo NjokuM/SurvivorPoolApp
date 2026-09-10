@@ -140,7 +140,9 @@ async def join_pool_by_code(db: AsyncSession, session_code: str, user_id: int):
 # --------------------------
 async def get_user_pools(db: AsyncSession, user_id: int):
     result = await db.execute(
-        select(PoolUserStats).where(PoolUserStats.user_id == user_id)
+        select(PoolUserStats)
+        .where(PoolUserStats.user_id == user_id)
+        .options(selectinload(PoolUserStats.pool))
     )
     return result.scalars().all()
 
@@ -199,29 +201,37 @@ async def update_pool_user_stats(
 async def delete_pool(db: AsyncSession, pool_id: int, user_id: int):
     """
     Delete a pool. Only the creator can delete it.
-    Cascades to delete all pool_user_stats and picks.
+    Cascades to delete all pool_user_stats, picks, and notification logs.
     """
     from app.models.pick import Pick
-    
+    from app.models.notification import NotificationLog
+
     # Get the pool
     pool = await get_pool_by_id(db, pool_id)
     if not pool:
         raise HTTPException(status_code=404, detail="Pool not found")
-    
+
     # Check if user is the creator
     if pool.created_by != user_id:
         raise HTTPException(status_code=403, detail="Only the pool creator can delete this pool")
-    
+
     # Delete all picks for this pool
     await db.execute(
         delete(Pick).where(Pick.pool_id == pool_id)
     )
-    
+
     # Delete all user stats for this pool
     await db.execute(
         delete(PoolUserStats).where(PoolUserStats.pool_id == pool_id)
     )
-    
+
+    # Delete notification logs referencing this pool (FK has no cascade -
+    # left over from any deadline reminders/results notifications sent for
+    # it, otherwise this delete fails with an IntegrityError).
+    await db.execute(
+        delete(NotificationLog).where(NotificationLog.pool_id == pool_id)
+    )
+
     # Delete the pool
     await db.execute(
         delete(Pool).where(Pool.id == pool_id)

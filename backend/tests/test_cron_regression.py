@@ -45,6 +45,21 @@ class TestWeeklyRefreshEndpoint:
         assert res.status_code == 405
 
 
+# ==================== Recompute Pool Status Endpoint ====================
+
+class TestRecomputePoolStatusEndpoint:
+    @pytest.mark.asyncio
+    async def test_post_with_cron_secret_returns_200(self, client):
+        res = await client.post("/admin/recompute-pool-status", headers=CRON_HEADERS)
+        assert res.status_code == 200
+        assert res.json() == {"pools_archived": 0}
+
+    @pytest.mark.asyncio
+    async def test_without_cron_secret_returns_401(self, client):
+        res = await client.post("/admin/recompute-pool-status")
+        assert res.status_code == 401
+
+
 # ==================== Response Shape ====================
 
 class TestSchedulerResponseShape:

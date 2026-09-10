@@ -178,6 +178,21 @@ export const createStyles = (colors) => StyleSheet.create({
     fontWeight: '600',
     color: colors.error,
   },
+  deleteAccountButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    padding: 14,
+    gap: 8,
+    marginBottom: 16,
+  },
+  deleteAccountText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.error,
+    opacity: 0.8,
+  },
   versionText: {
     fontSize: 12,
     color: colors.textMuted,

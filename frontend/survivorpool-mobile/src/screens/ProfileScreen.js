@@ -37,9 +37,20 @@ export default function ProfileScreen({ route, navigation }) {
       // Calculate stats from real data
       const totalPools = userPools.length;
       const totalPicks = userPicks.length;
-      const wins = userPicks.filter(p => p.result === 'WIN' || p.result === 'win').length;
-      const completedPicks = userPicks.filter(p => p.result).length;
-      const winRate = completedPicks > 0 ? Math.round((wins / completedPicks) * 100) : 0;
+
+      // Win rate is mode-aware, per pick's own pool: in a lives (survivor)
+      // pool, a draw keeps you safe just like a win, so anything that
+      // isn't a loss/missed-pick counts; in a league pool only an outright
+      // win scores, so a draw shouldn't inflate the rate.
+      const hasLivesByPool = new Map(userPools.map(p => [p.pool_id, p.has_lives]));
+      const decidedPicks = userPicks.filter(p => p.result && p.result !== 'NP');
+      const goodPicks = decidedPicks.filter(p => {
+        const livesMode = hasLivesByPool.get(p.pool_id) ?? true;
+        return livesMode ? p.result !== 'LOSS' : p.result === 'WIN';
+      });
+      const winRate = decidedPicks.length > 0
+        ? Math.round((goodPicks.length / decidedPicks.length) * 100)
+        : 0;
 
       setStats({ totalPools, totalPicks, winRate });
     } catch (error) {
@@ -85,6 +96,48 @@ export default function ProfileScreen({ route, navigation }) {
       index: 0,
       routes: [{ name: 'Login' }],
     });
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Delete Account',
+      'This permanently deletes your account, including every pool you created, all your picks, and your stats. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Account',
+          style: 'destructive',
+          onPress: () => {
+            // A second confirmation guards against an accidental tap on a
+            // destructive, irreversible action - without adding a full
+            // customer-service step (still entirely self-service).
+            Alert.alert(
+              'Are you absolutely sure?',
+              'Your account and all associated data will be permanently deleted right now.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Yes, Delete Everything',
+                  style: 'destructive',
+                  onPress: async () => {
+                    try {
+                      await apiService.deleteAccount();
+                      navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+                    } catch (error) {
+                      Toast.show({
+                        type: 'error',
+                        text1: 'Failed to delete account',
+                        text2: error.message || 'Please try again',
+                      });
+                    }
+                  },
+                },
+              ]
+            );
+          },
+        },
+      ]
+    );
   };
 
   const handleContactSupport = () => {
@@ -194,6 +247,12 @@ Thanks!`,
           icon: 'lock-closed-outline',
           label: 'Change Password',
           onPress: () => navigation.navigate('ChangePassword', { userId }),
+        },
+        {
+          icon: 'archive-outline',
+          label: 'Archived Pools',
+          subtitle: 'Pools whose season has ended',
+          onPress: () => navigation.navigate('ArchivedPools', { userId }),
         },
       ],
     },
@@ -380,8 +439,14 @@ Thanks!`,
           <Text style={styles.logoutText}>Log Out</Text>
         </TouchableOpacity>
 
+        {/* Delete Account Button */}
+        <TouchableOpacity style={styles.deleteAccountButton} onPress={handleDeleteAccount}>
+          <Ionicons name="trash-outline" size={18} color={colors.error} />
+          <Text style={styles.deleteAccountText}>Delete Account</Text>
+        </TouchableOpacity>
+
         {/* App Version */}
-        <Text style={styles.versionText}>Survivor Pool v1.0.0</Text>
+        <Text style={styles.versionText}>Survivor Pool v1.0.2</Text>
 
         {/* Bottom spacing */}
         <View style={{ height: 100 }} />

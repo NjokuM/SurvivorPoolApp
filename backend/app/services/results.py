@@ -3,7 +3,7 @@
 from typing import Dict, Tuple, List, Iterable
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from app.models.competiton_data import Fixture
 from app.models.pick import Pick, PickResultEnum
 from app.models.pool import Pool, PoolUserStats
@@ -220,6 +220,108 @@ async def _detect_missed_picks(
 
 
 # ------------------------------------------------------------
+# 3c. POOL ARCHIVING - deactivate pools once their season is decided
+# ------------------------------------------------------------
+async def _pool_is_decided(db: AsyncSession, pool: Pool) -> bool:
+    """A lives pool is decided once at most one member still has lives -
+    the winner (or, in a tie-wipe, nobody) is already determined and
+    there's nothing left to play for. League pools are never "decided"
+    early this way since nobody's ever eliminated."""
+    if not pool.has_lives:
+        return False
+    stats_list = await _load_pool_user_stats(db, pool.id)
+    survivors = sum(1 for s in stats_list if s.lives_left > 0)
+    return survivors <= 1
+
+
+async def _season_concluded(
+    db: AsyncSession, competition_id: int, gameweek: int, gameweek_fixtures: List[Fixture]
+) -> bool:
+    """True once the competition's final gameweek has fully finished -
+    applies to every pool in that competition regardless of mode."""
+    max_gw_result = await db.execute(
+        select(func.max(Fixture.gameweek)).where(Fixture.competition_id == competition_id)
+    )
+    total_gameweeks = max_gw_result.scalar_one()
+    return (
+        total_gameweeks is not None
+        and gameweek == total_gameweeks
+        and all(f.status == "FT" for f in gameweek_fixtures)
+    )
+
+
+async def _deactivate_concluded_pools(
+    db: AsyncSession,
+    competition_id: int,
+    gameweek: int,
+    gameweek_fixtures: List[Fixture],
+    touched_pools: Dict[int, Pool],
+) -> None:
+    """Archive pools whose season is over, so they drop off the user's
+    active pools list and move to their profile's archive. Once inactive a
+    pool never needs to reactivate - lives only go down, and a concluded
+    season stays concluded."""
+    season_concluded = await _season_concluded(db, competition_id, gameweek, gameweek_fixtures)
+
+    pools_to_check = dict(touched_pools)
+    if season_concluded:
+        # A pool with zero picks processed this gameweek (e.g. everyone
+        # already eliminated) wouldn't otherwise appear in touched_pools -
+        # but the season ending applies to every active pool in the
+        # competition regardless of gameweek-level activity.
+        for pool in await _load_active_pools(db, competition_id):
+            pools_to_check[pool.id] = pool
+
+    changed = False
+    for pool in pools_to_check.values():
+        if not pool.is_active:
+            continue
+        if season_concluded or await _pool_is_decided(db, pool):
+            pool.is_active = False
+            changed = True
+
+    if changed:
+        await db.commit()
+
+
+async def recompute_all_pool_statuses(db: AsyncSession) -> int:
+    """One-off backfill / safety net: re-check every currently-active pool
+    against both archiving criteria, for pools whose season already
+    concluded (or was already decided) before this feature existed, or for
+    any gameweek where nothing was processed and the automatic per-gameweek
+    check above never ran. Returns how many pools were newly archived."""
+    res = await db.execute(select(Pool).where(Pool.is_active == True))
+    pools = res.scalars().all()
+
+    changed = 0
+    for pool in pools:
+        if pool.competition_id is None:
+            continue
+        max_gw_result = await db.execute(
+            select(func.max(Fixture.gameweek)).where(Fixture.competition_id == pool.competition_id)
+        )
+        total_gameweeks = max_gw_result.scalar_one()
+        all_fixtures_res = await db.execute(
+            select(Fixture).where(
+                Fixture.competition_id == pool.competition_id,
+                Fixture.gameweek == total_gameweeks,
+            )
+        )
+        final_gameweek_fixtures = all_fixtures_res.scalars().all()
+        season_concluded = bool(final_gameweek_fixtures) and all(
+            f.status == "FT" for f in final_gameweek_fixtures
+        )
+
+        if season_concluded or await _pool_is_decided(db, pool):
+            pool.is_active = False
+            changed += 1
+
+    if changed:
+        await db.commit()
+    return changed
+
+
+# ------------------------------------------------------------
 # 4. APPLY DATABASE UPDATES
 # ------------------------------------------------------------
 async def _apply_stats_updates(
@@ -338,6 +440,9 @@ async def process_gameweek_results(
         apply_decrements_for_eliminated=apply_decrements_for_eliminated
     )
     await db.commit()
+
+    touched_pools = await _load_pools_by_ids(db, (pool_id for pool_id, _ in accum.keys()))
+    await _deactivate_concluded_pools(db, competition_id, gameweek, gameweek_fixtures, touched_pools)
 
     if newly_scored_picks:
         # Notification failures must never break results processing - the

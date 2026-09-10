@@ -37,7 +37,10 @@ export default function MyPoolsScreen({ route, navigation }) {
         apiService.getUserPoolsWithDetails(userId),
       ]);
       setUser(userData);
-      setPools(userPools);
+      // Pools whose season has ended (or, for a lives pool, is already
+      // decided) move to the archive in the Profile tab instead of
+      // cluttering the active list here.
+      setPools(userPools.filter(pool => pool.is_active !== false));
     } catch (error) {
       console.error('Error loading pools:', error);
     } finally {
