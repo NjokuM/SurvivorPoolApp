@@ -39,7 +39,7 @@
         "buildConfiguration": "Release"
       },
       "env": {
-        "APP_ENV": "int"
+        "APP_ENV": "prod"
       }
     },
     "production": {
