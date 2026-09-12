@@ -59,14 +59,6 @@ export const createStyles = (colors) => StyleSheet.create({
     fontSize: 14,
     color: colors.textMuted,
   },
-  editButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.accent + '20',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   statsCard: {
     backgroundColor: colors.surface,
     borderRadius: 16,

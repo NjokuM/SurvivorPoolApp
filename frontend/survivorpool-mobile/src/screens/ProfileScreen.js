@@ -365,9 +365,6 @@ Thanks!`,
             <Text style={styles.userName}>{user?.firstName || user?.userName || 'Player'}</Text>
             <Text style={styles.userEmail}>{user?.email || 'email@example.com'}</Text>
           </View>
-          <TouchableOpacity style={styles.editButton}>
-            <Ionicons name="pencil" size={18} color={colors.accent} />
-          </TouchableOpacity>
         </View>
 
         {/* Stats Summary */}

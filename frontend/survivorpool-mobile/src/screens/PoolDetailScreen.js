@@ -731,12 +731,12 @@ export default function PoolDetailScreen({ route, navigation }) {
                             <Text style={styles.historyTeam}>{team.name}</Text>
                             <View style={[
                               styles.historyResult,
-                              pick?.result === 'win' && styles.historyResultWin,
-                              pick?.result === 'draw' && styles.historyResultDraw,
-                              pick?.result === 'loss' && styles.historyResultLoss,
+                              pick?.result === 'WIN' && styles.historyResultWin,
+                              pick?.result === 'DRAW' && styles.historyResultDraw,
+                              pick?.result === 'LOSS' && styles.historyResultLoss,
                             ]}>
                               <Text style={styles.historyResultText}>
-                                {pick?.result === 'win' ? '✓' : pick?.result === 'draw' ? 'D' : pick?.result === 'loss' ? '✗' : '-'}
+                                {pick?.result === 'WIN' ? '✓' : pick?.result === 'DRAW' ? 'D' : pick?.result === 'LOSS' ? '✗' : '-'}
                               </Text>
                             </View>
                           </>
@@ -816,12 +816,12 @@ export default function PoolDetailScreen({ route, navigation }) {
                           <Text style={styles.historyWeekTeam}>{team.name}</Text>
                           <View style={[
                             styles.historyResult,
-                            pick?.result === 'win' && styles.historyResultWin,
-                            pick?.result === 'draw' && styles.historyResultDraw,
-                            pick?.result === 'loss' && styles.historyResultLoss,
+                            pick?.result === 'WIN' && styles.historyResultWin,
+                            pick?.result === 'DRAW' && styles.historyResultDraw,
+                            pick?.result === 'LOSS' && styles.historyResultLoss,
                           ]}>
                             <Text style={styles.historyResultText}>
-                              {pick?.result === 'win' ? '✓' : pick?.result === 'draw' ? 'D' : pick?.result === 'loss' ? '✗' : '-'}
+                              {pick?.result === 'WIN' ? '✓' : pick?.result === 'DRAW' ? 'D' : pick?.result === 'LOSS' ? '✗' : '-'}
                             </Text>
                           </View>
                         </>
