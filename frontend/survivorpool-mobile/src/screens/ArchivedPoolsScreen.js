@@ -61,6 +61,12 @@ export default function ArchivedPoolsScreen({ route, navigation }) {
         ) : (
           pools.map((pool) => {
             const livesLeft = pool.user_stats?.lives_left ?? 0;
+            // Rank (from the backend leaderboard: lives_left desc, then
+            // total_points as tiebreak) is the actual determinant of who
+            // won - surviving isn't enough on its own once more than one
+            // player is still alive when the season ends.
+            const rank = pool.user_stats?.rank;
+            const resultLabel = rank === 1 ? 'Winner' : livesLeft > 0 ? 'Runner-up' : 'Eliminated';
 
             return (
               <TouchableOpacity
@@ -93,7 +99,7 @@ export default function ArchivedPoolsScreen({ route, navigation }) {
                       </>
                     ) : (
                       <>
-                        <Text style={styles.poolStatValue}>{livesLeft > 0 ? 'Winner' : 'Eliminated'}</Text>
+                        <Text style={styles.poolStatValue}>{resultLabel}</Text>
                         <Text style={styles.poolStatLabel}>Result</Text>
                       </>
                     )}
