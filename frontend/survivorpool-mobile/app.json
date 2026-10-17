@@ -28,6 +28,7 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.njokum.survivorpoolmobile",
+      "versionCode": 1,
       "googleServicesFile": "./google-services.json"
     },
     "web": {

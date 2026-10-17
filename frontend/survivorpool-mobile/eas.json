@@ -46,6 +46,9 @@
       "ios": {
         "buildConfiguration": "Release"
       },
+      "android": {
+        "buildType": "app-bundle"
+      },
       "env": {
         "APP_ENV": "prod"
       }
@@ -55,6 +58,10 @@
     "production": {
       "ios": {
         "ascAppId": "6757318859"
+      },
+      "android": {
+        "serviceAccountKeyPath": "./google-play-service-account.json",
+        "track": "internal"
       }
     }
   }

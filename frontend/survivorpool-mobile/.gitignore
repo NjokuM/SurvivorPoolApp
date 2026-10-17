@@ -30,6 +30,7 @@ yarn-error.*
 # macOS
 .DS_Store
 *.pem
+google-play-service-account.json
 
 # local env files
 .env*.local
