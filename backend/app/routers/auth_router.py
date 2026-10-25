@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Depends, Form, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy import func
 from jose import JWTError
 from google.auth.exceptions import GoogleAuthError
 from app.database import get_db
 from app.models.user import User
-from app.utils.auth import verify_password, create_access_token, create_refresh_token, decode_token, token_predates_password_change
+from app.utils.auth import normalize_email, verify_password, create_access_token, create_refresh_token, decode_token, token_predates_password_change
 from app.utils.google_auth import verify_google_id_token
 from app.utils.apple_auth import verify_apple_id_token
 from app.dependencies.security import get_current_user
@@ -24,10 +25,12 @@ async def signup(
     db: AsyncSession = Depends(get_db),
 ):
 
+    email = normalize_email(email)
     credentials = UserLogin(email=email, password=password)
 
-    # Check if email already exists
-    result = await db.execute(select(User).filter(User.email == email))
+    # Check if email already exists. Compared case-insensitively so accounts
+    # created before emails were normalized still count as taken.
+    result = await db.execute(select(User).filter(func.lower(User.email) == email))
     if result.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Email already in use")
 
@@ -65,8 +68,10 @@ async def login(
     password: str = Form(...),
     db: AsyncSession = Depends(get_db)
 ):
-    # Get user by email
-    result = await db.execute(select(User).where(User.email == email))
+    # Get user by email - case-insensitive, so it also matches accounts
+    # stored with mixed case before emails were normalized on signup.
+    email = normalize_email(email)
+    result = await db.execute(select(User).where(func.lower(User.email) == email))
     user = result.scalars().first()
 
     # Check if user exists and password matches (Google-only accounts have
@@ -98,13 +103,13 @@ async def google_login(
         raise HTTPException(status_code=401, detail="Google email is not verified")
 
     google_id = claims["sub"]
-    email = claims["email"]
+    email = normalize_email(claims["email"])
 
     result = await db.execute(select(User).where(User.google_id == google_id))
     user = result.scalars().first()
 
     if not user:
-        result = await db.execute(select(User).where(User.email == email))
+        result = await db.execute(select(User).where(func.lower(User.email) == email))
         user = result.scalars().first()
         if user:
             # Existing local account signing in with Google for the first time.
@@ -151,6 +156,7 @@ async def apple_login(
     # later sign-in omits it from both the token and the client result, so
     # fall back to whatever the client sent (also only ever set on first auth).
     email = claims.get("email") or body.email
+    email = normalize_email(email) if email else None
 
     result = await db.execute(select(User).where(User.apple_id == apple_id))
     user = result.scalars().first()
@@ -162,7 +168,7 @@ async def apple_login(
             # an account with.
             raise HTTPException(status_code=401, detail="Apple did not provide an email for this sign-in")
 
-        result = await db.execute(select(User).where(User.email == email))
+        result = await db.execute(select(User).where(func.lower(User.email) == email))
         user = result.scalars().first()
         if user:
             # Existing local account signing in with Apple for the first time.

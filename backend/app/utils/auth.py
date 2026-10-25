@@ -14,6 +14,13 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 30
 REFRESH_TOKEN_EXPIRE_DAYS = 180
 
 
+def normalize_email(email: str) -> str:
+    """Emails are case-insensitive in practice - "Michael@email.com" and
+    "michael@email.com" are the same inbox, so they must be the same account.
+    Store and compare everything in this canonical form."""
+    return email.strip().lower()
+
+
 def hash_password(password: str) -> str:
     salt = bcrypt.gensalt()
     hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
