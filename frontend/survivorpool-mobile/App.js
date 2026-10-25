@@ -14,6 +14,7 @@ import { GOOGLE_WEB_CLIENT_ID } from './src/config/google';
 import { registerForPushNotificationsAsync } from './src/utils/pushNotifications';
 import LoginScreen from './src/screens/LoginScreen';
 import SignupScreen from './src/screens/SignupScreen';
+import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
 import MyPoolsScreen from './src/screens/MyPoolsScreen';
 import PoolDetailScreen from './src/screens/PoolDetailScreen';
 import JoinCreatePoolScreen from './src/screens/JoinCreatePoolScreen';
@@ -129,6 +130,7 @@ function AppNavigator({ initialRouteName, initialMainParams }) {
       >
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Signup" component={SignupScreen} />
+        <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
         <Stack.Screen name="Main" component={MainTabs} initialParams={initialMainParams} />
         <Stack.Screen name="PoolDetail" component={PoolDetailScreen} />
         <Stack.Screen name="EditProfile" component={EditProfileScreen} />

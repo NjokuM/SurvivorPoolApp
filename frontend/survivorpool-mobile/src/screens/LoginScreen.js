@@ -169,6 +169,13 @@ export default function LoginScreen({ navigation }) {
                   />
                 </View>
 
+                <Text
+                  style={[styles.linkText, { alignSelf: 'flex-end', marginTop: -8, marginBottom: 16 }]}
+                  onPress={() => navigation.navigate('ForgotPassword', { email })}
+                >
+                  Forgot password?
+                </Text>
+
                 <TouchableOpacity 
                   style={[styles.button, isLoading && styles.buttonDisabled]} 
                   onPress={handleLogin}

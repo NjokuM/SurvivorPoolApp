@@ -202,6 +202,33 @@ export const changePassword = async (currentPassword, newPassword) => {
   }
 };
 
+// Step 1 of forgot-password: emails a 6-digit code. The backend gives the
+// same response whether or not the email has an account.
+export const forgotPassword = async (email) => {
+  try {
+    const res = await API.post('/forgot-password', { email: normalizeEmail(email) });
+    return res.data;
+  } catch (error) {
+    throw new Error(getErrorMessage(error));
+  }
+};
+
+// Step 2 of forgot-password: sets the new password and logs the user in.
+export const resetPassword = async (email, code, newPassword) => {
+  try {
+    const res = await API.post('/reset-password', {
+      email: normalizeEmail(email),
+      code: code.trim(),
+      new_password: newPassword,
+    });
+    await storeTokens(res.data.access_token, res.data.refresh_token);
+    await storeUser(res.data.user);
+    return res.data;
+  } catch (error) {
+    throw new Error(getErrorMessage(error));
+  }
+};
+
 // ==================== NOTIFICATIONS ====================
 
 export const registerPushToken = async (token, platform) => {
@@ -250,6 +277,20 @@ export const getUser = async (userId) => {
   }
   const res = await API.get(`/users/${userId}`);
   return res.data;
+};
+
+// Update the logged-in user's profile. Only the fields passed are changed:
+// { userName, email, firstName, lastName }. Returns the updated user.
+export const updateProfile = async (updates) => {
+  try {
+    const body = { ...updates };
+    if (body.email !== undefined) body.email = normalizeEmail(body.email);
+    const res = await API.patch('/users/me', body);
+    await storeUser({ id: res.data.id, email: res.data.email });
+    return res.data;
+  } catch (error) {
+    throw new Error(getErrorMessage(error));
+  }
 };
 
 // ==================== POOLS ====================
@@ -815,7 +856,10 @@ export default {
   deleteAccount,
   restoreSession,
   changePassword,
+  forgotPassword,
+  resetPassword,
   getUser,
+  updateProfile,
   getAllPools,
   getPoolById,
   getUserPools,

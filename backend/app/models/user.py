@@ -13,6 +13,11 @@ class User(Base):
     google_id = Column(String, unique=True, nullable=True, index=True)
     apple_id = Column(String, unique=True, nullable=True, index=True)
     password_changed_at = Column(DateTime(timezone=True), nullable=True)
+    # Forgot-password flow: a short-lived 6-digit code emailed to the user,
+    # stored hashed (same as a password) and cleared once used.
+    password_reset_code_hash = Column(String, nullable=True)
+    password_reset_expires_at = Column(DateTime(timezone=True), nullable=True)
+    password_reset_attempts = Column(Integer, nullable=False, default=0, server_default="0")
     # Maps directly to the three toggles on the Notifications settings
     # screen. notifications_enabled is the master switch - the other two
     # are only meaningful when it's on.

@@ -5,6 +5,7 @@ jest.mock('../src/api/api', () => ({
     get: jest.fn(),
     post: jest.fn(),
     put: jest.fn(),
+    patch: jest.fn(),
     delete: jest.fn(),
   },
 }));
@@ -28,6 +29,9 @@ import {
   getTeamLeaderboard,
   getTeamPicks,
   normalizeEmail,
+  forgotPassword,
+  resetPassword,
+  updateProfile,
   getCompetitions,
   getTeams,
   getFixtures,
@@ -90,6 +94,47 @@ describe('Auth API', () => {
 
       const formData = API.post.mock.calls[0][1];
       expect(formData.get('email')).toBe('michael@email.com');
+    });
+  });
+
+  describe('forgotPassword', () => {
+    it('posts the normalized email', async () => {
+      API.post.mockResolvedValueOnce({ data: { message: 'sent' } });
+
+      await forgotPassword(' Michael@Email.com ');
+
+      expect(API.post).toHaveBeenCalledWith('/forgot-password', { email: 'michael@email.com' });
+    });
+
+    it('surfaces the backend error detail', async () => {
+      API.post.mockRejectedValueOnce({ response: { data: { detail: 'Password reset is temporarily unavailable' } } });
+      await expect(forgotPassword('a@b.com')).rejects.toThrow('Password reset is temporarily unavailable');
+    });
+  });
+
+  describe('resetPassword', () => {
+    it('posts the code and new password, then stores tokens', async () => {
+      API.post.mockResolvedValueOnce({
+        data: { success: true, access_token: 'at', refresh_token: 'rt', user: { id: 1, email: 'a@b.com' } },
+      });
+
+      await resetPassword('A@B.com', ' 123456 ', 'newpassword1');
+
+      expect(API.post).toHaveBeenCalledWith('/reset-password', {
+        email: 'a@b.com', code: '123456', new_password: 'newpassword1',
+      });
+      expect(AsyncStorage.multiSet).toHaveBeenCalled();
+    });
+  });
+
+  describe('updateProfile', () => {
+    it('patches /users/me with a normalized email', async () => {
+      API.patch.mockResolvedValueOnce({ data: { id: 1, userName: 'mike', email: 'new@b.com' } });
+
+      const user = await updateProfile({ userName: 'mike', email: 'New@B.com' });
+
+      expect(API.patch).toHaveBeenCalledWith('/users/me', { userName: 'mike', email: 'new@b.com' });
+      expect(user.userName).toBe('mike');
     });
   });
 

@@ -26,18 +26,12 @@ class UserCreate(BaseModel):
         from_attributes = True
         validate_by_name = True
 
-class UpdateUser(BaseModel):
-    userName : Optional[str] = None
-    firstName : Optional[str] = None
-    lastName : Optional[str] = None
-    email : Optional[str] = None
-    password : Optional[str] = None
-    created_at : Optional[str] = None
-    updated_at : Optional[str] = None
-
-    class Config:
-        validate_by_name = True
-        from_attributes = True
+class UpdateProfileRequest(BaseModel):
+    """PATCH /users/me - only the fields sent are changed."""
+    userName: Optional[str] = Field(None, min_length=1, max_length=30)
+    email: Optional[EmailStr] = None
+    firstName: Optional[str] = Field(None, max_length=50)
+    lastName: Optional[str] = Field(None, max_length=50)
 
 
 class UserLogin(BaseModel):
@@ -47,6 +41,16 @@ class UserLogin(BaseModel):
 
 class ChangePasswordRequest(BaseModel):
     current_password: str
+    new_password: str = Field(min_length=8)
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    email: EmailStr
+    code: str = Field(min_length=6, max_length=6)
     new_password: str = Field(min_length=8)
 
 
