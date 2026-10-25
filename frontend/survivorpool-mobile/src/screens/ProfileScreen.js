@@ -1,5 +1,6 @@
 import { View, Text, TouchableOpacity, ScrollView, StatusBar, Switch, Linking, Alert } from 'react-native';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { useTheme } from '../theme/colors';
@@ -21,9 +22,15 @@ export default function ProfileScreen({ route, navigation }) {
   const [resultNotifications, setResultNotifications] = useState(true);
 
   useEffect(() => {
-    loadUserAndStats();
     loadNotificationPreferences();
   }, []);
+
+  // Reload on every focus so edits made on Edit Profile show up on return.
+  useFocusEffect(
+    useCallback(() => {
+      loadUserAndStats();
+    }, [])
+  );
 
   const loadUserAndStats = async () => {
     try {

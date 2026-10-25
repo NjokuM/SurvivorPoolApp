@@ -111,10 +111,6 @@ export const createStyles = (colors) => StyleSheet.create({
     fontSize: 16,
     color: colors.textPrimary,
   },
-  inputMultiline: {
-    minHeight: 100,
-    paddingTop: 14,
-  },
   infoCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',

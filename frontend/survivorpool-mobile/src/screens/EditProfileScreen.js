@@ -19,7 +19,6 @@ export default function EditProfileScreen({ route, navigation }) {
   const [email, setEmail] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [bio, setBio] = useState('');
 
   useEffect(() => {
     loadUser();
@@ -29,11 +28,10 @@ export default function EditProfileScreen({ route, navigation }) {
     try {
       const userData = await apiService.getUser(userId);
       setUser(userData);
-      setUsername(userData.username || '');
+      setUsername(userData.userName || '');
       setEmail(userData.email || '');
-      setFirstName(userData.first_name || '');
-      setLastName(userData.last_name || '');
-      setBio(userData.bio || '');
+      setFirstName(userData.firstName || '');
+      setLastName(userData.lastName || '');
     } catch (error) {
       console.error('Error loading user:', error);
       Alert.alert('Error', 'Failed to load profile data');
@@ -59,18 +57,14 @@ export default function EditProfileScreen({ route, navigation }) {
 
     setSaving(true);
     try {
-      // TODO: Replace with actual API call when backend is ready
-      // await apiService.updateUser(userId, {
-      //   username: username.trim(),
-      //   email: email.trim(),
-      //   first_name: firstName.trim(),
-      //   last_name: lastName.trim(),
-      //   bio: bio.trim(),
-      // });
+      const updated = await apiService.updateProfile({
+        userName: username.trim(),
+        email: email.trim(),
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+      });
+      setUser(updated);
 
-      // Mock success for now
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
       Alert.alert(
         'Success',
         'Your profile has been updated!',
@@ -86,11 +80,10 @@ export default function EditProfileScreen({ route, navigation }) {
   const hasChanges = () => {
     if (!user) return false;
     return (
-      username !== (user.username || '') ||
+      username !== (user.userName || '') ||
       email !== (user.email || '') ||
-      firstName !== (user.first_name || '') ||
-      lastName !== (user.last_name || '') ||
-      bio !== (user.bio || '')
+      firstName !== (user.firstName || '') ||
+      lastName !== (user.lastName || '')
     );
   };
 
@@ -201,20 +194,6 @@ export default function EditProfileScreen({ route, navigation }) {
                   onChangeText={setLastName}
                 />
               </View>
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Bio</Text>
-              <TextInput
-                style={[styles.input, styles.inputMultiline]}
-                placeholder="Tell us about yourself..."
-                placeholderTextColor={colors.placeholder}
-                value={bio}
-                onChangeText={setBio}
-                multiline
-                numberOfLines={3}
-                textAlignVertical="top"
-              />
             </View>
           </View>
 

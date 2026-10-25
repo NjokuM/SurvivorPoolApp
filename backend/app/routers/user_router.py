@@ -1,11 +1,11 @@
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from app.database import get_db
 from app.models.user import User
 from app.models.notification import PushToken
-from app.schemas.user_schema import UserOut, ChangePasswordRequest
+from app.schemas.user_schema import UserOut, ChangePasswordRequest, UpdateProfileRequest
 from app.schemas.notification_schema import (
     PushTokenRegister,
     NotificationPreferencesUpdate,
@@ -13,7 +13,7 @@ from app.schemas.notification_schema import (
 )
 from app.crud import user_crud as crud_user
 from app.dependencies.security import get_current_user
-from app.utils.auth import verify_password, hash_password, create_access_token, create_refresh_token
+from app.utils.auth import normalize_email, verify_password, hash_password, create_access_token, create_refresh_token
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
@@ -29,6 +29,45 @@ async def get_user(user_id: int, db: AsyncSession = Depends(get_db), current_use
         raise HTTPException(status_code=404, detail="User not found")
 
     return user
+
+@router.patch("/me", response_model=UserOut)
+async def update_profile(
+    body: UpdateProfileRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update the caller's username, email and/or name. Only fields sent are changed."""
+    if body.userName is not None:
+        user_name = body.userName.strip()
+        if not user_name:
+            raise HTTPException(status_code=400, detail="Username can't be empty")
+        if user_name != current_user.userName:
+            taken = await db.execute(
+                select(User.id).where(User.userName == user_name, User.id != current_user.id)
+            )
+            if taken.first():
+                raise HTTPException(status_code=400, detail="Username already taken")
+            current_user.userName = user_name
+
+    if body.email is not None:
+        email = normalize_email(body.email)
+        if email != normalize_email(current_user.email):
+            taken = await db.execute(
+                select(User.id).where(func.lower(User.email) == email, User.id != current_user.id)
+            )
+            if taken.first():
+                raise HTTPException(status_code=400, detail="Email already in use")
+        current_user.email = email
+
+    if body.firstName is not None:
+        current_user.firstName = body.firstName.strip()
+    if body.lastName is not None:
+        current_user.lastName = body.lastName.strip()
+
+    await db.commit()
+    await db.refresh(current_user)
+    return current_user
+
 
 @router.delete("/me")
 async def delete_account(
