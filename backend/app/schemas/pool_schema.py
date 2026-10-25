@@ -66,9 +66,47 @@ class LeaderboardEntry(BaseModel):
     username: str
     lives_left: int
     total_points: int
+    goal_difference: int = 0
     eliminated_gameweek: Optional[int]
     is_eliminated: bool
     rank: int
 
     class Config:
         from_attributes = True
+
+class TeamLeaderboardEntry(BaseModel):
+    team_id: int
+    team_name: str
+    short_name: Optional[str] = None
+    logo: Optional[str] = None
+    total_points: int
+    goal_difference: int
+    times_picked: int
+    wins: int
+    draws: int
+    losses: int
+    rank: int
+
+
+class TeamPickEntry(BaseModel):
+    pick_id: int
+    user_id: int
+    username: str
+    gameweek: int
+    kickoff_time: Optional[datetime] = None
+    is_home: bool
+    opponent_id: Optional[int] = None
+    opponent_name: Optional[str] = None
+    opponent_logo: Optional[str] = None
+    team_goals: Optional[int] = None
+    opponent_goals: Optional[int] = None
+    # WIN / DRAW / LOSS once scored, None while the fixture is still pending
+    result: Optional[str] = None
+    points: int
+
+
+class TeamPicksResponse(BaseModel):
+    team_id: int
+    team_name: str
+    logo: Optional[str] = None
+    picks: List[TeamPickEntry]

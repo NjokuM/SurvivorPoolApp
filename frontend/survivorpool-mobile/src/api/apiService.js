@@ -38,7 +38,13 @@ const getErrorMessage = (error) => {
 
 // ==================== AUTH ====================
 
+// Emails are case-insensitive - "Michael@email.com" and "michael@email.com"
+// are the same account. The backend normalizes too; this just keeps stray
+// whitespace/autocapitalization from ever leaving the device.
+export const normalizeEmail = (email) => (email || '').trim().toLowerCase();
+
 export const login = async (email, password) => {
+  email = normalizeEmail(email);
   if (USE_MOCK_DATA) {
     await mockDelay(800);
     const user = Object.values(MOCK_USERS).find(u => u.email === email);
@@ -73,7 +79,7 @@ export const signup = async (userData) => {
 
   const formData = new FormData();
   formData.append('userName', userData.userName);
-  formData.append('email', userData.email);
+  formData.append('email', normalizeEmail(userData.email));
   formData.append('password', userData.password);
   formData.append('firstName', userData.firstName);
   formData.append('lastName', userData.lastName);
@@ -460,9 +466,41 @@ export const getPoolLeaderboard = async (poolId) => {
       rank: entry.rank,
     }));
   }
-  // Backend returns: List[LeaderboardEntry] with { user_id, username, lives_left, total_points, eliminated_gameweek, is_eliminated, rank }
+  // Backend returns: List[LeaderboardEntry] with { user_id, username, lives_left, total_points, goal_difference, eliminated_gameweek, is_eliminated, rank }
   const res = await API.get(`/pools/${poolId}/leaderboard`);
   return res.data;
+};
+
+// Every team in the pool's league, ranked by points players in this pool
+// have earned picking them. Returns: [{ team_id, team_name, short_name, logo,
+// total_points, goal_difference, times_picked, wins, draws, losses, rank }]
+export const getTeamLeaderboard = async (poolId) => {
+  if (USE_MOCK_DATA) {
+    await mockDelay(400);
+    return [];
+  }
+  try {
+    const res = await API.get(`/pools/${poolId}/team-leaderboard`);
+    return res.data;
+  } catch (error) {
+    throw new Error(getErrorMessage(error));
+  }
+};
+
+// Every pick of one team in a pool. Returns: { team_id, team_name, logo,
+// picks: [{ pick_id, user_id, username, gameweek, is_home, opponent_name,
+// opponent_logo, team_goals, opponent_goals, result, points }] }
+export const getTeamPicks = async (poolId, teamId) => {
+  if (USE_MOCK_DATA) {
+    await mockDelay(400);
+    return { team_id: teamId, team_name: '', logo: null, picks: [] };
+  }
+  try {
+    const res = await API.get(`/pools/${poolId}/team-leaderboard/${teamId}`);
+    return res.data;
+  } catch (error) {
+    throw new Error(getErrorMessage(error));
+  }
 };
 
 // ==================== COMPETITIONS ====================
@@ -788,6 +826,8 @@ export default {
   leavePool,
   deletePool,
   getPoolLeaderboard,
+  getTeamLeaderboard,
+  getTeamPicks,
   getCompetitions,
   getPickLimits,
   getTeams,

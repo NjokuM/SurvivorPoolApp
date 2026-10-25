@@ -6,6 +6,7 @@ import * as Clipboard from 'expo-clipboard';
 import { useTheme } from '../theme/colors';
 import apiService from '../api/apiService';
 import { createStyles } from './styles/PoolDetailScreen.styles';
+import { formatGoalDifference } from '../utils/format';
 
 export default function PoolDetailScreen({ route, navigation }) {
   const { poolId, userId, poolName } = route.params;
@@ -14,12 +15,13 @@ export default function PoolDetailScreen({ route, navigation }) {
   
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState('summary'); // 'summary', 'pick', 'standings', 'history', 'info'
+  const [activeTab, setActiveTab] = useState('summary'); // 'summary', 'pick', 'standings', 'teams', 'history', 'info'
   
   // Data state
   const [pool, setPool] = useState(null);
   const [userStats, setUserStats] = useState(null);
   const [leaderboard, setLeaderboard] = useState([]);
+  const [teamLeaderboard, setTeamLeaderboard] = useState([]);
   const [teams, setTeams] = useState([]);
   const [fixtures, setFixtures] = useState([]);
   const [userPicks, setUserPicks] = useState([]);
@@ -35,7 +37,15 @@ export default function PoolDetailScreen({ route, navigation }) {
 
   const loadData = useCallback(async () => {
     try {
-      const data = await apiService.getHomeScreenData(userId, poolId);
+      const [data, teamBoard] = await Promise.all([
+        apiService.getHomeScreenData(userId, poolId),
+        // The Teams tab is secondary - don't let it block the rest of the screen.
+        apiService.getTeamLeaderboard(poolId).catch((error) => {
+          console.error('Error loading team leaderboard:', error);
+          return [];
+        }),
+      ]);
+      setTeamLeaderboard(teamBoard);
       setPool(data.pool);
       setUserStats(data.userStats);
       setLeaderboard(data.leaderboard);
@@ -244,6 +254,7 @@ export default function PoolDetailScreen({ route, navigation }) {
     { id: 'summary', label: 'Summary', icon: 'home' },
     { id: 'pick', label: 'Make Pick', icon: 'football' },
     { id: 'standings', label: 'Standings', icon: 'trophy' },
+    { id: 'teams', label: 'Teams', icon: 'shield' },
     { id: 'history', label: 'History', icon: 'time' },
     { id: 'info', label: 'Info', icon: 'information-circle' },
   ];
@@ -616,6 +627,7 @@ export default function PoolDetailScreen({ route, navigation }) {
               <Text style={[styles.columnHeaderText, { flex: 1 }]}>Player</Text>
               <Text style={[styles.columnHeaderText, { width: 50, textAlign: 'center' }]}>Picks</Text>
               <Text style={[styles.columnHeaderText, { width: 50, textAlign: 'center' }]}>Pts</Text>
+              <Text style={[styles.columnHeaderText, { width: 40, textAlign: 'center' }]}>GD</Text>
               {pool?.has_lives !== false && (
                 <Text style={[styles.columnHeaderText, { width: 60, textAlign: 'center' }]}>Lives</Text>
               )}
@@ -644,6 +656,7 @@ export default function PoolDetailScreen({ route, navigation }) {
                   </View>
                   <Text style={styles.standingsStatText}>{pickCount}</Text>
                   <Text style={[styles.standingsStatText, styles.standingsPoints]}>{entry.total_points || 0}</Text>
+                  <Text style={[styles.standingsStatText, styles.standingsGd]}>{formatGoalDifference(entry.goal_difference)}</Text>
                   {pool?.has_lives !== false && (
                     <View style={styles.standingsLives}>
                       {[...Array(entry.lives_left || 0)].map((_, i) => (
@@ -657,6 +670,62 @@ export default function PoolDetailScreen({ route, navigation }) {
                 </View>
               );
             })}
+          </>
+        )}
+
+        {/* TEAMS TAB */}
+        {activeTab === 'teams' && (
+          <>
+            <View style={styles.standingsHeader}>
+              <Text style={styles.standingsTitle}>Team Leaderboard</Text>
+              <Text style={styles.standingsSubtitle}>Points earned by players picking each team</Text>
+            </View>
+
+            <View style={styles.standingsColumnHeader}>
+              <Text style={[styles.columnHeaderText, { width: 44 }]}>Rank</Text>
+              <Text style={[styles.columnHeaderText, { flex: 1 }]}>Team</Text>
+              <Text style={[styles.columnHeaderText, { width: 44, textAlign: 'center' }]}>Picks</Text>
+              <Text style={[styles.columnHeaderText, { width: 40, textAlign: 'center' }]}>GD</Text>
+              <Text style={[styles.columnHeaderText, { width: 44, textAlign: 'center' }]}>Pts</Text>
+              <View style={{ width: 16 }} />
+            </View>
+
+            {teamLeaderboard.length === 0 && (
+              <Text style={styles.historySubtitle}>No team data yet</Text>
+            )}
+
+            {teamLeaderboard.map((team) => (
+              <TouchableOpacity
+                key={team.team_id}
+                style={styles.standingsRow}
+                onPress={() => navigation.navigate('TeamPicks', {
+                  poolId,
+                  userId,
+                  teamId: team.team_id,
+                  teamName: team.team_name,
+                  teamLogo: team.logo,
+                })}
+              >
+                <View style={[
+                  styles.standingsRank,
+                  team.total_points > 0 && team.rank === 1 && styles.standingsRankGold,
+                  team.total_points > 0 && team.rank === 2 && styles.standingsRankSilver,
+                  team.total_points > 0 && team.rank === 3 && styles.standingsRankBronze,
+                ]}>
+                  <Text style={styles.standingsRankText}>{team.rank}</Text>
+                </View>
+                <View style={[styles.standingsInfo, styles.teamRowInfo]}>
+                  {team.logo ? (
+                    <Image source={{ uri: team.logo }} style={styles.teamRowLogo} resizeMode="contain" />
+                  ) : null}
+                  <Text style={styles.standingsName} numberOfLines={1}>{team.team_name}</Text>
+                </View>
+                <Text style={[styles.standingsStatText, { width: 44 }]}>{team.times_picked}</Text>
+                <Text style={[styles.standingsStatText, styles.standingsGd]}>{formatGoalDifference(team.goal_difference)}</Text>
+                <Text style={[styles.standingsStatText, { width: 44 }]}>{team.total_points}</Text>
+                <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+              </TouchableOpacity>
+            ))}
           </>
         )}
 

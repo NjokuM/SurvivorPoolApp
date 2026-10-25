@@ -22,6 +22,7 @@ import EditProfileScreen from './src/screens/EditProfileScreen';
 import ChangePasswordScreen from './src/screens/ChangePasswordScreen';
 import AdminEditPicksScreen from './src/screens/AdminEditPicksScreen';
 import ArchivedPoolsScreen from './src/screens/ArchivedPoolsScreen';
+import TeamPicksScreen from './src/screens/TeamPicksScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -134,6 +135,7 @@ function AppNavigator({ initialRouteName, initialMainParams }) {
         <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
         <Stack.Screen name="AdminEditPicks" component={AdminEditPicksScreen} />
         <Stack.Screen name="ArchivedPools" component={ArchivedPoolsScreen} />
+        <Stack.Screen name="TeamPicks" component={TeamPicksScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

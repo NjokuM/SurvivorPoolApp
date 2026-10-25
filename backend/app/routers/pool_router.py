@@ -11,8 +11,12 @@ from app.schemas.pool_schema import (
     PoolUserStatsResponse,
     PoolJoinRequest,
     LeaderboardEntry,
-    PoolJoinByCodeRequest
+    PoolJoinByCodeRequest,
+    TeamLeaderboardEntry,
+    TeamPicksResponse,
 )
+from sqlalchemy import select
+from app.models.competiton_data import Team
 from app.crud import pool_crud, competition_crud
 from app.services import leaderboard
 
@@ -127,6 +131,28 @@ async def get_user_pools(user_id: int, db: AsyncSession = Depends(get_db), curre
 async def get_pool_leaderboard(pool_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Displays all users in a pool and ranks the users based on their total points and lives"""
     return await leaderboard.get_leaderboard(db, pool_id)
+
+
+@router.get("/pools/{pool_id}/team-leaderboard", response_model=List[TeamLeaderboardEntry])
+async def get_pool_team_leaderboard(pool_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Ranks every team in the pool's league by the points players in this pool have earned picking them"""
+    pool = await pool_crud.get_pool_by_id(db, pool_id)
+    if not pool:
+        raise HTTPException(status_code=404, detail="Pool not found")
+    return await leaderboard.get_team_leaderboard(db, pool)
+
+
+@router.get("/pools/{pool_id}/team-leaderboard/{team_id}", response_model=TeamPicksResponse)
+async def get_pool_team_picks(pool_id: int, team_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Every pick of one team in this pool - who picked it, when, the result and the points earned"""
+    pool = await pool_crud.get_pool_by_id(db, pool_id)
+    if not pool:
+        raise HTTPException(status_code=404, detail="Pool not found")
+    team = (await db.execute(select(Team).where(Team.id == team_id))).scalar_one_or_none()
+    if not team or team.competition_id != pool.competition_id:
+        raise HTTPException(status_code=404, detail="Team not found in this pool's league")
+    picks = await leaderboard.get_team_picks(db, pool, team)
+    return TeamPicksResponse(team_id=team.id, team_name=team.name, logo=team.logo, picks=picks)
 
 
 # --------------------- DELETE POOL --------------------- #

@@ -566,6 +566,57 @@ export const createStyles = (colors) => StyleSheet.create({
     paddingVertical: 8,
     marginBottom: 4,
   },
+  standingsGd: {
+    width: 40,
+    fontSize: 13,
+    color: colors.textMuted,
+  },
+  // Teams Tab Styles
+  teamRowInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  teamRowLogo: {
+    width: 24,
+    height: 24,
+  },
+  teamPickRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  teamPickInfo: {
+    flex: 1,
+    marginRight: 8,
+  },
+  teamPickMatch: {
+    fontSize: 13,
+    color: colors.textMuted,
+    marginTop: 2,
+  },
+  teamPickPoints: {
+    width: 48,
+    textAlign: 'right',
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  teamSummaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
   // History Tab Styles
   historyHeader: {
     flexDirection: 'row',

@@ -25,6 +25,9 @@ import {
   leavePool,
   deletePool,
   getPoolLeaderboard,
+  getTeamLeaderboard,
+  getTeamPicks,
+  normalizeEmail,
   getCompetitions,
   getTeams,
   getFixtures,
@@ -78,6 +81,25 @@ describe('Auth API', () => {
     it('propagates network errors', async () => {
       API.post.mockRejectedValueOnce(new Error('Network Error'));
       await expect(login('test@test.com', 'pass')).rejects.toThrow('Network Error');
+    });
+
+    it('sends the email trimmed and lowercased', async () => {
+      API.post.mockResolvedValueOnce({ data: { success: false } });
+
+      await login('  Michael@Email.com ', 'pass');
+
+      const formData = API.post.mock.calls[0][1];
+      expect(formData.get('email')).toBe('michael@email.com');
+    });
+  });
+
+  describe('normalizeEmail', () => {
+    it('trims and lowercases', () => {
+      expect(normalizeEmail(' Michael@Email.COM ')).toBe('michael@email.com');
+    });
+
+    it('tolerates empty input', () => {
+      expect(normalizeEmail(undefined)).toBe('');
     });
   });
 
@@ -246,6 +268,28 @@ describe('Pools API', () => {
 
     expect(API.get).toHaveBeenCalledWith('/pools/1/leaderboard');
     expect(lb[0].rank).toBe(1);
+  });
+
+  it('getTeamLeaderboard calls the team leaderboard endpoint', async () => {
+    API.get.mockResolvedValueOnce({
+      data: [{ team_id: 7, team_name: 'Arsenal', total_points: 6, rank: 1 }],
+    });
+
+    const board = await getTeamLeaderboard(1);
+
+    expect(API.get).toHaveBeenCalledWith('/pools/1/team-leaderboard');
+    expect(board[0].team_name).toBe('Arsenal');
+  });
+
+  it('getTeamPicks calls the per-team endpoint', async () => {
+    API.get.mockResolvedValueOnce({
+      data: { team_id: 7, team_name: 'Arsenal', picks: [{ pick_id: 1, gameweek: 3, points: 3 }] },
+    });
+
+    const data = await getTeamPicks(1, 7);
+
+    expect(API.get).toHaveBeenCalledWith('/pools/1/team-leaderboard/7');
+    expect(data.picks).toHaveLength(1);
   });
 });
 
