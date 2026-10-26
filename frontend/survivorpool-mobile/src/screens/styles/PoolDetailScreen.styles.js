@@ -601,11 +601,16 @@ export const createStyles = (colors) => StyleSheet.create({
     marginTop: 2,
   },
   teamPickPoints: {
-    width: 48,
+    width: 56,
     textAlign: 'right',
     fontSize: 14,
     fontWeight: '700',
     color: colors.textPrimary,
+  },
+  teamPickSubRow: {
+    marginLeft: 24,
+    paddingVertical: 10,
+    backgroundColor: colors.inputBackground,
   },
   teamSummaryRow: {
     flexDirection: 'row',

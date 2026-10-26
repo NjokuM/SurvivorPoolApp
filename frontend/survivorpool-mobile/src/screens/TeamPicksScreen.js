@@ -17,6 +17,16 @@ export default function TeamPicksScreen({ route, navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [picks, setPicks] = useState([]);
+  const [expandedUserIds, setExpandedUserIds] = useState(new Set());
+
+  const toggleExpanded = (id) => {
+    setExpandedUserIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const loadData = useCallback(async () => {
     try {
@@ -45,6 +55,26 @@ export default function TeamPicksScreen({ route, navigation }) {
   const totalPoints = scored.reduce((sum, p) => sum + p.points, 0);
   const goalDifference = scored.reduce((sum, p) => sum + ((p.team_goals ?? 0) - (p.opponent_goals ?? 0)), 0);
   const count = (result) => scored.filter(p => p.result === result).length;
+
+  // One entry per player who picked this team, most points first. Picks
+  // arrive newest-first from the API, so each player's list stays that way.
+  const players = Object.values(
+    picks.reduce((acc, pick) => {
+      const entry = acc[pick.user_id] || (acc[pick.user_id] = {
+        userId: pick.user_id,
+        username: pick.username,
+        picks: [],
+        points: 0,
+      });
+      entry.picks.push(pick);
+      if (pick.result) entry.points += pick.points;
+      return acc;
+    }, {})
+  ).sort((a, b) =>
+    b.points - a.points ||
+    b.picks.length - a.picks.length ||
+    a.username.localeCompare(b.username)
+  );
 
   const renderScore = (pick) => {
     const venue = pick.is_home ? 'H' : 'A';
@@ -113,35 +143,60 @@ export default function TeamPicksScreen({ route, navigation }) {
             <Text style={styles.historySubtitle}>Nobody in this pool has picked {teamName} yet</Text>
           )}
 
-          {picks.map((pick) => {
-            const isCurrentUser = pick.user_id === userId;
+          {players.map((player) => {
+            const isCurrentUser = player.userId === userId;
+            const isExpanded = expandedUserIds.has(player.userId);
+            const pickCount = player.picks.length;
             return (
-              <View
-                key={pick.pick_id}
-                style={[styles.teamPickRow, isCurrentUser && styles.standingsRowHighlight]}
-              >
-                <View style={styles.historyWeekBadge}>
-                  <Text style={styles.historyWeekBadgeText}>GW{pick.gameweek}</Text>
-                </View>
-                <View style={styles.teamPickInfo}>
-                  <Text style={[styles.standingsName, isCurrentUser && styles.standingsNameHighlight]} numberOfLines={1}>
-                    {pick.username} {isCurrentUser && '(You)'}
-                  </Text>
-                  <Text style={styles.teamPickMatch} numberOfLines={1}>{renderScore(pick)}</Text>
-                </View>
-                <View style={[
-                  styles.historyResult,
-                  pick.result === 'WIN' && styles.historyResultWin,
-                  pick.result === 'DRAW' && styles.historyResultDraw,
-                  pick.result === 'LOSS' && styles.historyResultLoss,
-                ]}>
-                  <Text style={styles.historyResultText}>
-                    {pick.result === 'WIN' ? '✓' : pick.result === 'DRAW' ? 'D' : pick.result === 'LOSS' ? '✗' : '-'}
-                  </Text>
-                </View>
-                <Text style={styles.teamPickPoints}>
-                  {pick.result ? `+${pick.points}` : '–'}
-                </Text>
+              <View key={player.userId}>
+                <TouchableOpacity
+                  style={[styles.teamPickRow, isCurrentUser && styles.standingsRowHighlight]}
+                  onPress={() => toggleExpanded(player.userId)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.historyAvatar}>
+                    <Text style={styles.historyAvatarText}>{player.username[0].toUpperCase()}</Text>
+                  </View>
+                  <View style={styles.teamPickInfo}>
+                    <Text style={[styles.standingsName, isCurrentUser && styles.standingsNameHighlight]} numberOfLines={1}>
+                      {player.username} {isCurrentUser && '(You)'}
+                    </Text>
+                    <Text style={styles.teamPickMatch}>
+                      {pickCount} {pickCount === 1 ? 'pick' : 'picks'}
+                    </Text>
+                  </View>
+                  <Text style={styles.teamPickPoints}>{player.points} pts</Text>
+                  <Ionicons
+                    name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                    size={18}
+                    color={colors.textMuted}
+                    style={{ marginLeft: 8 }}
+                  />
+                </TouchableOpacity>
+
+                {isExpanded && player.picks.map((pick) => (
+                  <View key={pick.pick_id} style={[styles.teamPickRow, styles.teamPickSubRow]}>
+                    <View style={styles.historyWeekBadge}>
+                      <Text style={styles.historyWeekBadgeText}>GW{pick.gameweek}</Text>
+                    </View>
+                    <Text style={[styles.teamPickMatch, styles.teamPickInfo, { marginTop: 0 }]} numberOfLines={1}>
+                      {renderScore(pick)}
+                    </Text>
+                    <View style={[
+                      styles.historyResult,
+                      pick.result === 'WIN' && styles.historyResultWin,
+                      pick.result === 'DRAW' && styles.historyResultDraw,
+                      pick.result === 'LOSS' && styles.historyResultLoss,
+                    ]}>
+                      <Text style={styles.historyResultText}>
+                        {pick.result === 'WIN' ? '✓' : pick.result === 'DRAW' ? 'D' : pick.result === 'LOSS' ? '✗' : '-'}
+                      </Text>
+                    </View>
+                    <Text style={styles.teamPickPoints}>
+                      {pick.result ? `+${pick.points}` : '–'}
+                    </Text>
+                  </View>
+                ))}
               </View>
             );
           })}
