@@ -19,6 +19,7 @@ from sqlalchemy import select
 from app.models.competiton_data import Team
 from app.crud import pool_crud, competition_crud
 from app.services import leaderboard
+from app.services.double_weeks import suggested_double_weeks, MAX_DOUBLE_WEEKS
 
 router = APIRouter(tags=["Pool"])
 
@@ -65,6 +66,17 @@ async def create_pool(pool_data: PoolCreate, db: AsyncSession = Depends(get_db),
                 "distinct teams before the season ends."
             ),
         )
+
+    if pool_data.has_lives is False:
+        if pool_data.double_weeks is None:
+            pool_data.double_weeks = suggested_double_weeks(
+                limits["team_count"], pool_data.max_picks_per_team,
+                limits["remaining_gameweeks"], limits["total_gameweeks"],
+            )
+        elif pool_data.double_weeks > MAX_DOUBLE_WEEKS:
+            raise HTTPException(status_code=400, detail=f"A pool can have at most {MAX_DOUBLE_WEEKS} double weeks")
+    else:
+        pool_data.double_weeks = 0  # double weeks are points-only
 
     pool = await pool_crud.create_pool(db, pool_data)
     await pool_crud.join_pool(db,pool.id,pool_data.created_by)

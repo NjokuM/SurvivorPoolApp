@@ -15,6 +15,9 @@ class PoolBase(BaseModel):
     max_picks_per_team: Optional[int] = None
     total_lives: Optional[int] = 3
     has_lives: Optional[bool] = Field(True, description="False for a league-style pool with no elimination - standings are points only")
+    # Points-only pools: how many double weeks each member gets. None means
+    # "use the suggested amount" (computed at creation); always 0 for lives pools.
+    double_weeks: Optional[int] = Field(None, ge=0)
     is_active: Optional[bool] = True
 
 class PoolCreate(PoolBase):
@@ -103,6 +106,8 @@ class TeamPickEntry(BaseModel):
     # WIN / DRAW / LOSS once scored, None while the fixture is still pending
     result: Optional[str] = None
     points: int
+    # Part of a double week (two picks that gameweek)
+    is_double: bool = False
 
 
 class TeamPicksResponse(BaseModel):
@@ -110,3 +115,19 @@ class TeamPicksResponse(BaseModel):
     team_name: str
     logo: Optional[str] = None
     picks: List[TeamPickEntry]
+
+
+class DoubleWeekStatus(BaseModel):
+    allowance: int
+    used: int
+    remaining: int
+    # Gameweeks the caller has switched a double week on for (current and past)
+    active_gameweeks: List[int]
+
+
+class DoubleWeekActivate(BaseModel):
+    gameweek: int
+
+
+class DoubleWeekAllowanceUpdate(BaseModel):
+    double_weeks: int = Field(ge=0)

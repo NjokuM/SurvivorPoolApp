@@ -5,6 +5,7 @@ from app.models.competiton_data import Team, Competition,Fixture
 from app.schemas.competition_schema import TeamCreate, LeagueCreate, FixtureCreate, FixtureUpdate
 from datetime import datetime
 import math
+from app.services.double_weeks import suggested_double_weeks
 
 # Save team to DB if not already existing
 async def store_team_in_db(db: AsyncSession, team: TeamCreate) -> Team:
@@ -194,6 +195,12 @@ async def get_pick_limits(db, competition_id: int, start_gameweek: int | None = 
         default_viable = min_viable
 
     return {
+        # Points-only pools: double weeks that let every team be picked
+        # exactly default_max_picks_per_team times (0 if starting mid-season).
+        "suggested_double_weeks": suggested_double_weeks(
+            team_count, default_viable, remaining_gameweeks, total_gameweeks
+        ),
+        "total_gameweeks": total_gameweeks,
         "min_max_picks_per_team": min_viable,
         "default_max_picks_per_team": default_viable,
         "remaining_gameweeks": remaining_gameweeks,

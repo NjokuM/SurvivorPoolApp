@@ -1,7 +1,7 @@
 # Import all models so SQLAlchemy knows about them
 from .base import Base
 from .competiton_data import Competition, Team, Fixture
-from .pool import Pool, PoolUserStats
+from .pool import Pool, PoolUserStats, DoubleWeek
 from .user import User
 from .pick import Pick
 from .notification import PushToken, NotificationLog
@@ -12,6 +12,7 @@ __all__ = [
     "Team",
     "Pool",
     "PoolUserStats",
+    "DoubleWeek",
     "User",
     "Pick",
     "Fixture",

@@ -35,7 +35,7 @@ class NotificationLog(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     pool_id = Column(Integer, ForeignKey("pools.id"), nullable=False)
     gameweek = Column(Integer, nullable=False)
-    notification_type = Column(String, nullable=False)  # day_before | four_hour | daily_unpicked | pick_result
+    notification_type = Column(String, nullable=False)  # day_before | four_hour | daily_unpicked | pick_result | pick_result:<pick_id> (double weeks)
     sent_date = Column(Date, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Boolean, func
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Boolean, UniqueConstraint, func
 from sqlalchemy.orm import relationship
 from app.models.base import Base
 
@@ -16,6 +16,10 @@ class Pool(Base):
     has_lives = Column(Boolean, nullable=False, default=True, server_default="true")
     created_by = Column(Integer, ForeignKey("users.id")) # TODO nullable = False
     is_active = Column(Boolean, nullable=False, default=True, server_default="true")
+    # How many "double weeks" each member may play - a gameweek where they
+    # pick two teams and score both results. Points-only pools only (always
+    # 0 for lives pools); see app.services.double_weeks.
+    double_weeks = Column(Integer, nullable=False, default=0, server_default="0")
 
     competition = relationship("Competition")
     users_stats = relationship("PoolUserStats", back_populates="pool")
@@ -40,3 +44,19 @@ class PoolUserStats(Base):
 
     pool = relationship("Pool", back_populates="users_stats")
     user = relationship("User")
+
+class DoubleWeek(Base):
+    """A member has switched on a double week for one gameweek, allowing a
+    second pick that week. Rows are removed again if the week closes with
+    fewer than two picks, so the row count is always the number used."""
+    __tablename__ = "double_weeks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    pool_id = Column(Integer, ForeignKey("pools.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    gameweek = Column(Integer, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("pool_id", "user_id", "gameweek", name="uq_double_week"),
+    )

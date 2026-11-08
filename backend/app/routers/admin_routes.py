@@ -1,9 +1,10 @@
+from collections import defaultdict
 from typing import Dict, List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, delete
 from app.database import get_db
-from app.models.pool import Pool
+from app.models.pool import Pool, DoubleWeek
 from app.models.pick import Pick
 from app.models.competiton_data import Fixture
 from app.crud.pool_crud import get_pool_user_stats
@@ -11,6 +12,7 @@ from app.dependencies.admin import require_pool_admin
 from app.dependencies.security import verify_cron
 from app.schemas.pick_schema import AdminPicksImportRequest, AdminPicksImportResponse
 from app.services.results import process_gameweek_results, recompute_all_pool_statuses
+from app.services import double_weeks
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -75,11 +77,13 @@ async def admin_set_user_picks(
         .join(Fixture, Fixture.id == Pick.fixture_id)
         .where(Pick.pool_id == pool_id, Pick.user_id == user_id)
     )
-    existing_by_gameweek: Dict[int, Pick] = {gw: pick for pick, gw in existing_res.all()}
+    # A gameweek can hold two picks if a double week was played.
+    existing_by_gameweek: Dict[int, List[Pick]] = defaultdict(list)
+    for pick, gw in existing_res.all():
+        existing_by_gameweek[gw].append(pick)
 
-    earliest_gameweek = pool.start_gameweek
-    applied = 0
-
+    # Validate every entry first, grouped by gameweek.
+    entries_by_gameweek: Dict[int, List] = defaultdict(list)
     for entry in body.picks:
         fixture_res = await db.execute(select(Fixture).where(Fixture.id == entry.fixture_id))
         fixture = fixture_res.scalar_one_or_none()
@@ -95,33 +99,56 @@ async def admin_set_user_picks(
                 status_code=400,
                 detail=f"Team {entry.team_id} is not playing in fixture {entry.fixture_id}",
             )
+        entries_by_gameweek[fixture.gameweek].append((entry, fixture))
 
-        earliest_gameweek = min(earliest_gameweek, fixture.gameweek)
+    active_double_weeks = set(await double_weeks.active_gameweeks(db, pool_id, user_id))
+    for gw, entries in entries_by_gameweek.items():
+        if len(entries) > 2:
+            raise HTTPException(status_code=400, detail=f"Gameweek {gw} can have at most two picks")
+        if len(entries) == 2:
+            if pool.has_lives:
+                raise HTTPException(status_code=400, detail="Double weeks are only available in points-only pools")
+            if entries[0][1].id == entries[1][1].id:
+                raise HTTPException(status_code=400, detail=f"Gameweek {gw}'s two picks must be from different matches")
+            if gw not in active_double_weeks:
+                if len(active_double_weeks) >= pool.double_weeks:
+                    raise HTTPException(status_code=400, detail="This member has no double weeks left")
+                active_double_weeks.add(gw)
 
-        existing = existing_by_gameweek.get(fixture.gameweek)
-        if existing:
-            existing.fixture_id = fixture.id
-            existing.team_id = entry.team_id
-            existing.source = "admin"
-        else:
-            new_pick = Pick(
+    earliest_gameweek = pool.start_gameweek
+    applied = 0
+
+    # Each gameweek mentioned is replaced wholesale with the given picks.
+    for gw, entries in entries_by_gameweek.items():
+        earliest_gameweek = min(earliest_gameweek, gw)
+        for old in existing_by_gameweek.pop(gw, []):
+            await db.delete(old)
+        await db.flush()  # free the (pool, user, fixture) slot before re-adding
+
+        await db.execute(delete(DoubleWeek).where(
+            DoubleWeek.pool_id == pool_id, DoubleWeek.user_id == user_id, DoubleWeek.gameweek == gw,
+        ))
+        if len(entries) == 2:
+            db.add(DoubleWeek(pool_id=pool_id, user_id=user_id, gameweek=gw))
+
+        for entry, fixture in entries:
+            db.add(Pick(
                 pool_id=pool_id, user_id=user_id,
                 team_id=entry.team_id, fixture_id=fixture.id,
                 competition_id=pool.competition_id, source="admin",
-            )
-            db.add(new_pick)
-            existing_by_gameweek[fixture.gameweek] = new_pick
-        applied += 1
+            ))
+            applied += 1
 
-    # Blanket-reset every pick for this pool/user - not just the ones just
-    # touched - so the replay below recomputes the user's full history
+    # Blanket-reset every other pick for this pool/user - not just the ones
+    # just touched - so the replay below recomputes the user's full history
     # consistently. Anything left unchanged will simply come back to the
     # same result it already had.
-    for pick in existing_by_gameweek.values():
-        pick.result = None
-        pick.points = 0
-        pick.home_score = None
-        pick.away_score = None
+    for gw_picks in existing_by_gameweek.values():
+        for pick in gw_picks:
+            pick.result = None
+            pick.points = 0
+            pick.home_score = None
+            pick.away_score = None
 
     stats.lives_left = pool.total_lives
     stats.total_points = 0
