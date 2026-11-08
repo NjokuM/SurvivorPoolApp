@@ -180,7 +180,7 @@ export default function TeamPicksScreen({ route, navigation }) {
                       <Text style={styles.historyWeekBadgeText}>GW{pick.gameweek}</Text>
                     </View>
                     <Text style={[styles.teamPickMatch, styles.teamPickInfo, { marginTop: 0 }]} numberOfLines={1}>
-                      {renderScore(pick)}
+                      {pick.is_double ? '⚡ ' : ''}{renderScore(pick)}
                     </Text>
                     <View style={[
                       styles.historyResult,

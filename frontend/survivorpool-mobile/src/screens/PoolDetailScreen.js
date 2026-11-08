@@ -34,6 +34,10 @@ export default function PoolDetailScreen({ route, navigation }) {
   const [historyFilter, setHistoryFilter] = useState('week'); // 'week' or 'user'
   const [selectedHistoryUser, setSelectedHistoryUser] = useState(null);
   const [pickGameweek, setPickGameweek] = useState(null); // Gameweek for making picks
+  const [doubleWeeks, setDoubleWeeks] = useState({ allowance: 0, used: 0, remaining: 0, active_gameweeks: [] });
+  // In a double week with both picks made, which of the two a new selection replaces
+  const [editPickId, setEditPickId] = useState(null);
+  const [adminDoubleWeeks, setAdminDoubleWeeks] = useState(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -56,6 +60,8 @@ export default function PoolDetailScreen({ route, navigation }) {
       setCurrentGameweek(data.currentGameweek);
       setEarliestKickoff(data.earliestKickoff);
       setHasCurrentPick(data.hasCurrentPick || false);
+      if (data.doubleWeeks) setDoubleWeeks(data.doubleWeeks);
+      setAdminDoubleWeeks(data.pool?.double_weeks ?? 0);
       setHistoryWeek(data.currentGameweek);
       if (!pickGameweek) setPickGameweek(data.currentGameweek); // Default to current gameweek
     } catch (error) {
@@ -165,9 +171,10 @@ export default function PoolDetailScreen({ route, navigation }) {
         return;
       }
       
-      // Check if user already has a pick for this gameweek (edit scenario)
-      const existingPick = userPicks.find(p => p.gameweek === pickGameweek);
-      
+      // Edit an existing pick, or add one (a second pick in a double week)
+      const existingPick = getEditTarget(pickGameweek);
+      const isSecondPick = !existingPick && weekPicksFor(pickGameweek).length > 0;
+
       if (existingPick) {
         // Update existing pick
         await apiService.updatePick(existingPick.id, {
@@ -191,8 +198,10 @@ export default function PoolDetailScreen({ route, navigation }) {
         
         Toast.show({
           type: 'success',
-          text1: 'Pick Submitted!',
-          text2: `Your pick for Gameweek ${pickGameweek} is locked in`,
+          text1: isSecondPick ? 'Second Pick Submitted!' : 'Pick Submitted!',
+          text2: isSecondPick
+            ? `Your double week for Gameweek ${pickGameweek} is set`
+            : `Your pick for Gameweek ${pickGameweek} is locked in`,
         });
       }
       
@@ -209,6 +218,124 @@ export default function PoolDetailScreen({ route, navigation }) {
 
   const getUsedTeamIds = () => {
     return userPicks.map(p => p.team_id);
+  };
+
+  // ---- Double weeks (points-only pools) ----
+  const isPointsPool = pool?.has_lives === false;
+  const weekPicksFor = (gw) => userPicks.filter(p => p.gameweek === gw).sort((a, b) => a.id - b.id);
+  const isDoubleWeekOn = (gw) => (doubleWeeks.active_gameweeks || []).includes(gw);
+  const fixtureStarted = (fixtureId) => {
+    const f = fixtures.find(x => x.id === fixtureId);
+    return !!f && new Date(f.kickoff_time) <= new Date();
+  };
+  const gameweekOpen = (gw) => fixtures.some(f => f.gameweek === gw && new Date(f.kickoff_time) > new Date());
+
+  // Which existing pick a new selection replaces, or null to add a new pick.
+  const getEditTarget = (gw) => {
+    const weekPicks = weekPicksFor(gw);
+    const maxPicks = isDoubleWeekOn(gw) ? 2 : 1;
+    if (weekPicks.length < maxPicks) return null;
+    return (
+      weekPicks.find(p => p.id === editPickId) ||
+      [...weekPicks].reverse().find(p => !fixtureStarted(p.fixture_id)) ||
+      weekPicks[weekPicks.length - 1]
+    );
+  };
+
+  const teamShortName = (teamId) => {
+    const team = teams.find(t => t.id === teamId);
+    return team?.short_name || team?.name || 'TBD';
+  };
+
+  const handleActivateDoubleWeek = () => {
+    Alert.alert(
+      '⚡ Play a Double Week?',
+      `Pick a second team in Gameweek ${pickGameweek}, from a different match. Both results count towards your points.\n\nYou have ${doubleWeeks.remaining} left. You can turn it off again until your second pick kicks off.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Play Double Week',
+          onPress: async () => {
+            try {
+              setDoubleWeeks(await apiService.activateDoubleWeek(poolId, pickGameweek));
+              setEditPickId(null);
+              setSelectedTeam(null);
+              Toast.show({ type: 'success', text1: 'Double Week on', text2: `Pick a second team for Gameweek ${pickGameweek}` });
+            } catch (error) {
+              Toast.show({ type: 'error', text1: 'Could not start double week', text2: error.message });
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDeactivateDoubleWeek = () => {
+    const hasSecondPick = weekPicksFor(pickGameweek).length > 1;
+    Alert.alert(
+      'Turn off Double Week?',
+      hasSecondPick
+        ? `Your second pick for Gameweek ${pickGameweek} will be removed and you'll get the double week back.`
+        : "You'll get the double week back.",
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Turn Off',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setDoubleWeeks(await apiService.deactivateDoubleWeek(poolId, pickGameweek));
+              setEditPickId(null);
+              setSelectedTeam(null);
+              loadData();
+            } catch (error) {
+              Toast.show({ type: 'error', text1: 'Could not turn off double week', text2: error.message });
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const renderHistoryPicks = (picks, teamStyle, align = 'flex-end') => {
+    const realPicks = picks.filter(p => p.team_id);
+    if (realPicks.length === 0) {
+      return <Text style={styles.historyNoPick}>No pick</Text>;
+    }
+    return (
+      <View style={{ flex: 1, alignItems: align, gap: 4 }}>
+        {realPicks.map((pick) => (
+          <View key={pick.id} style={{ flexDirection: 'row', alignItems: 'center' }}>
+            {realPicks.length > 1 && <Ionicons name="flash" size={13} color={colors.warning} style={{ marginRight: 4 }} />}
+            <Text style={[teamStyle, { flex: 0, flexShrink: 1, marginRight: 8 }]} numberOfLines={1}>{teams.find(t => t.id === pick.team_id)?.name || 'TBD'}</Text>
+            <View style={[
+              styles.historyResult,
+              pick.result === 'WIN' && styles.historyResultWin,
+              pick.result === 'DRAW' && styles.historyResultDraw,
+              pick.result === 'LOSS' && styles.historyResultLoss,
+            ]}>
+              <Text style={styles.historyResultText}>
+                {pick.result === 'WIN' ? '✓' : pick.result === 'DRAW' ? 'D' : pick.result === 'LOSS' ? '✗' : '-'}
+              </Text>
+            </View>
+          </View>
+        ))}
+      </View>
+    );
+  };
+
+  const handleSaveDoubleWeekAllowance = async () => {
+    try {
+      await apiService.setDoubleWeekAllowance(poolId, adminDoubleWeeks);
+      Toast.show({
+        type: 'success',
+        text1: 'Double weeks updated',
+        text2: adminDoubleWeeks > 0 ? `${adminDoubleWeeks} per player` : 'Double weeks switched off',
+      });
+      loadData();
+    } catch (error) {
+      Toast.show({ type: 'error', text1: 'Could not update double weeks', text2: error.message });
+    }
   };
 
   const getDeadlineCountdown = () => {
@@ -410,10 +537,8 @@ export default function PoolDetailScreen({ route, navigation }) {
                 <Text style={styles.cardSubtitle}>Gameweek {currentGameweek}</Text>
               </View>
               {leaderboard.map((entry) => {
-                const memberPick = allPoolPicks.find(p => p.user_id === entry.user_id && p.gameweek === currentGameweek);
-                const memberTeam = memberPick ? teams.find(t => t.id === memberPick.team_id) : null;
+                const memberPicks = allPoolPicks.filter(p => p.user_id === entry.user_id && p.gameweek === currentGameweek && p.team_id);
                 const isCurrentUser = entry.user_id === userId;
-                const pickResult = memberPick?.result?.toUpperCase();
                 
                 return (
                   <View key={entry.user_id} style={[styles.weekPickRow, isCurrentUser && styles.weekPickRowHighlight]}>
@@ -427,21 +552,31 @@ export default function PoolDetailScreen({ route, navigation }) {
                         {isCurrentUser ? 'You' : entry.username}
                       </Text>
                     </View>
-                    {memberTeam ? (
-                      <View style={[
-                        styles.weekPickTeamBadge,
-                        pickResult === 'WIN' && styles.weekPickTeamBadgeWin,
-                        pickResult === 'DRAW' && styles.weekPickTeamBadgeDraw,
-                        pickResult === 'LOSS' && styles.weekPickTeamBadgeLoss,
-                      ]}>
-                        <Text style={[
-                          styles.weekPickTeamText,
-                          pickResult === 'WIN' && styles.weekPickTeamTextWin,
-                          pickResult === 'DRAW' && styles.weekPickTeamTextDraw,
-                          pickResult === 'LOSS' && styles.weekPickTeamTextLoss,
-                        ]}>
-                          {memberTeam.short_name || memberTeam.name}
-                        </Text>
+                    {memberPicks.length > 0 ? (
+                      <View style={styles.weekPickBadges}>
+                        {memberPicks.length > 1 && (
+                          <Ionicons name="flash" size={14} color={colors.warning} />
+                        )}
+                        {memberPicks.map((memberPick) => {
+                          const pickResult = memberPick.result?.toUpperCase();
+                          return (
+                            <View key={memberPick.id} style={[
+                              styles.weekPickTeamBadge,
+                              pickResult === 'WIN' && styles.weekPickTeamBadgeWin,
+                              pickResult === 'DRAW' && styles.weekPickTeamBadgeDraw,
+                              pickResult === 'LOSS' && styles.weekPickTeamBadgeLoss,
+                            ]}>
+                              <Text style={[
+                                styles.weekPickTeamText,
+                                pickResult === 'WIN' && styles.weekPickTeamTextWin,
+                                pickResult === 'DRAW' && styles.weekPickTeamTextDraw,
+                                pickResult === 'LOSS' && styles.weekPickTeamTextLoss,
+                              ]}>
+                                {teamShortName(memberPick.team_id)}
+                              </Text>
+                            </View>
+                          );
+                        })}
                       </View>
                     ) : (
                       <Text style={styles.weekPickNoPick}>No pick</Text>
@@ -468,7 +603,7 @@ export default function PoolDetailScreen({ route, navigation }) {
               <View style={styles.weekSelector}>
                 <TouchableOpacity 
                   style={styles.weekButton}
-                  onPress={() => setPickGameweek(Math.max(currentGameweek, pickGameweek - 1))}
+                  onPress={() => { setPickGameweek(Math.max(currentGameweek, pickGameweek - 1)); setEditPickId(null); }}
                   disabled={pickGameweek <= currentGameweek}
                 >
                   <Ionicons name="chevron-back" size={20} color={pickGameweek <= currentGameweek ? colors.textMuted : colors.textPrimary} />
@@ -484,19 +619,91 @@ export default function PoolDetailScreen({ route, navigation }) {
                 </View>
                 <TouchableOpacity 
                   style={styles.weekButton}
-                  onPress={() => setPickGameweek(Math.min(38, pickGameweek + 1))}
+                  onPress={() => { setPickGameweek(Math.min(38, pickGameweek + 1)); setEditPickId(null); }}
                 >
                   <Ionicons name="chevron-forward" size={20} color={colors.textPrimary} />
                 </TouchableOpacity>
               </View>
             </View>
 
+            {/* Double Week (points-only pools) */}
+            {isPointsPool && doubleWeeks.allowance > 0 && (() => {
+              const doubleOn = isDoubleWeekOn(pickGameweek);
+              const weekPicks = weekPicksFor(pickGameweek);
+              const open = gameweekOpen(pickGameweek);
+              if (!doubleOn && !open) return null;
+              const target = getEditTarget(pickGameweek);
+
+              return (
+                <View style={[styles.doubleWeekCard, doubleOn && styles.doubleWeekCardActive]}>
+                  <View style={styles.doubleWeekRow}>
+                    <Ionicons name="flash" size={22} color={colors.warning} />
+                    <View style={{ flex: 1, marginLeft: 10 }}>
+                      <Text style={styles.doubleWeekTitle}>
+                        {doubleOn ? 'Double Week on' : 'Double Week'}
+                      </Text>
+                      <Text style={styles.doubleWeekSub}>
+                        {doubleOn
+                          ? (weekPicks.length < 2
+                            ? 'Pick a second team from a different match'
+                            : 'Both picks count this gameweek')
+                          : `Pick two teams this gameweek · ${doubleWeeks.remaining} of ${doubleWeeks.allowance} left`}
+                      </Text>
+                    </View>
+                    {doubleOn ? (
+                      open && (
+                        <TouchableOpacity style={styles.doubleWeekButtonOutline} onPress={handleDeactivateDoubleWeek}>
+                          <Text style={styles.doubleWeekButtonOutlineText}>Turn off</Text>
+                        </TouchableOpacity>
+                      )
+                    ) : (
+                      <TouchableOpacity
+                        style={[styles.doubleWeekButton, doubleWeeks.remaining <= 0 && styles.doubleWeekButtonDisabled]}
+                        onPress={handleActivateDoubleWeek}
+                        disabled={doubleWeeks.remaining <= 0}
+                      >
+                        <Text style={styles.doubleWeekButtonText}>
+                          {doubleWeeks.remaining > 0 ? 'Play' : 'None left'}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  {/* With both picks made, choose which one a new selection replaces */}
+                  {doubleOn && weekPicks.length === 2 && (
+                    <View style={styles.doubleWeekChips}>
+                      <Text style={styles.doubleWeekSub}>Change:</Text>
+                      {weekPicks.map((p) => {
+                        const started = fixtureStarted(p.fixture_id);
+                        const active = target?.id === p.id;
+                        return (
+                          <TouchableOpacity
+                            key={p.id}
+                            style={[styles.doubleWeekChip, active && styles.doubleWeekChipActive, started && { opacity: 0.5 }]}
+                            onPress={() => { setEditPickId(p.id); setSelectedTeam(null); }}
+                            disabled={started}
+                          >
+                            <Text style={[styles.doubleWeekChipText, active && styles.doubleWeekChipTextActive]}>
+                              {teamShortName(p.team_id)}{started ? ' (started)' : ''}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  )}
+                </View>
+              );
+            })()}
+
             {/* Teams Grid */}
             {(() => {
-              // Check if user's current pick for this gameweek has already started (lock editing)
-              const existingPick = userPicks.find(p => p.gameweek === pickGameweek);
-              const existingPickFixture = existingPick ? fixtures.find(f => f.id === existingPick.fixture_id) : null;
-              const currentPickStarted = existingPickFixture && new Date(existingPickFixture.kickoff_time) <= new Date();
+              // The pick a selection would replace (null = adding a new pick).
+              // Editing is locked once that pick's match has started.
+              const weekPicks = weekPicksFor(pickGameweek);
+              const existingPick = getEditTarget(pickGameweek);
+              const currentPickStarted = existingPick ? fixtureStarted(existingPick.fixture_id) : false;
+              // Adding a second pick: it must come from a different match.
+              const takenFixtureIds = existingPick ? [] : weekPicks.map(p => p.fixture_id);
               
               return (
                 <View style={styles.teamsGrid}>
@@ -506,8 +713,8 @@ export default function PoolDetailScreen({ route, navigation }) {
                     const usedCount = usedTeamIds.filter(id => id === team.id).length;
                     const isMaxed = usedCount >= (pool?.max_picks_per_team || 2);
                     
-                    // Check if this is the user's pick for this gameweek
-                    const isUserPick = existingPick && existingPick.team_id === team.id;
+                    // Check if this is one of the user's picks for this gameweek
+                    const isUserPick = weekPicks.some(p => p.team_id === team.id);
                     
                     // Find fixture for this team in the selected gameweek
                     const gameweekFixture = fixtures.find(f => 
@@ -534,7 +741,9 @@ export default function PoolDetailScreen({ route, navigation }) {
                     // - this team's match has started
                     // - user's current pick's match has started (can't edit anymore)
                     // - this is the user's current pick (no point selecting same team)
-                    const isDisabled = isMaxed || !gameweekFixture || matchStarted || (currentPickStarted && !isUserPick) || isUserPick;
+                    // - a second double week pick in the same match as the first
+                    const sameMatchAsPick = !!gameweekFixture && takenFixtureIds.includes(gameweekFixture.id);
+                    const isDisabled = isMaxed || !gameweekFixture || matchStarted || (currentPickStarted && !isUserPick) || isUserPick || sameMatchAsPick;
                     
                     return (
                       <TouchableOpacity
@@ -591,8 +800,9 @@ export default function PoolDetailScreen({ route, navigation }) {
 
             {/* Confirm Button */}
             {selectedTeam && (() => {
-              const existingPickForGameweek = userPicks.find(p => p.gameweek === pickGameweek);
-              const isEditMode = !!existingPickForGameweek;
+              const isEditMode = !!getEditTarget(pickGameweek);
+              const isSecondPick = !isEditMode && weekPicksFor(pickGameweek).length > 0;
+              const teamName = teams.find(t => t.id === selectedTeam)?.name;
               
               return (
                 <View style={styles.confirmContainer}>
@@ -601,9 +811,11 @@ export default function PoolDetailScreen({ route, navigation }) {
                     onPress={handleMakePick}
                   >
                     <Text style={styles.confirmButtonText}>
-                      {isEditMode 
-                        ? `Confirm Pick Edit: ${teams.find(t => t.id === selectedTeam)?.name}`
-                        : `Confirm Pick: ${teams.find(t => t.id === selectedTeam)?.name}`
+                      {isEditMode
+                        ? `Confirm Pick Edit: ${teamName}`
+                        : isSecondPick
+                          ? `⚡ Confirm Second Pick: ${teamName}`
+                          : `Confirm Pick: ${teamName}`
                       }
                     </Text>
                   </TouchableOpacity>
@@ -781,9 +993,8 @@ export default function PoolDetailScreen({ route, navigation }) {
 
                 {/* Week's picks */}
                 {leaderboard.map((entry) => {
-                  const pick = allPoolPicks.find(p => p.user_id === entry.user_id && p.gameweek === historyWeek);
-                  const team = pick ? teams.find(t => t.id === pick.team_id) : null;
-                  
+                  const picks = allPoolPicks.filter(p => p.user_id === entry.user_id && p.gameweek === historyWeek);
+
                   return (
                     <View key={entry.user_id} style={styles.historyRow}>
                       <View style={styles.historyUser}>
@@ -794,25 +1005,7 @@ export default function PoolDetailScreen({ route, navigation }) {
                         </View>
                         <Text style={styles.historyUsername}>{entry.username}</Text>
                       </View>
-                      <View style={styles.historyPick}>
-                        {team ? (
-                          <>
-                            <Text style={styles.historyTeam}>{team.name}</Text>
-                            <View style={[
-                              styles.historyResult,
-                              pick?.result === 'WIN' && styles.historyResultWin,
-                              pick?.result === 'DRAW' && styles.historyResultDraw,
-                              pick?.result === 'LOSS' && styles.historyResultLoss,
-                            ]}>
-                              <Text style={styles.historyResultText}>
-                                {pick?.result === 'WIN' ? '✓' : pick?.result === 'DRAW' ? 'D' : pick?.result === 'LOSS' ? '✗' : '-'}
-                              </Text>
-                            </View>
-                          </>
-                        ) : (
-                          <Text style={styles.historyNoPick}>No pick</Text>
-                        )}
-                      </View>
+                      {renderHistoryPicks(picks, styles.historyTeam)}
                     </View>
                   );
                 })}
@@ -872,31 +1065,14 @@ export default function PoolDetailScreen({ route, navigation }) {
                 {/* All picks for this user */}
                 {[...Array(currentGameweek)].map((_, i) => {
                   const gw = currentGameweek - i;
-                  const pick = allPoolPicks.find(p => p.user_id === selectedHistoryUser.user_id && p.gameweek === gw);
-                  const team = pick ? teams.find(t => t.id === pick.team_id) : null;
-                  
+                  const picks = allPoolPicks.filter(p => p.user_id === selectedHistoryUser.user_id && p.gameweek === gw);
+
                   return (
                     <View key={gw} style={styles.historyWeekRow}>
                       <View style={styles.historyWeekBadge}>
                         <Text style={styles.historyWeekBadgeText}>GW{gw}</Text>
                       </View>
-                      {team ? (
-                        <>
-                          <Text style={styles.historyWeekTeam}>{team.name}</Text>
-                          <View style={[
-                            styles.historyResult,
-                            pick?.result === 'WIN' && styles.historyResultWin,
-                            pick?.result === 'DRAW' && styles.historyResultDraw,
-                            pick?.result === 'LOSS' && styles.historyResultLoss,
-                          ]}>
-                            <Text style={styles.historyResultText}>
-                              {pick?.result === 'WIN' ? '✓' : pick?.result === 'DRAW' ? 'D' : pick?.result === 'LOSS' ? '✗' : '-'}
-                            </Text>
-                          </View>
-                        </>
-                      ) : (
-                        <Text style={styles.historyNoPick}>No pick</Text>
-                      )}
+                      {renderHistoryPicks(picks, styles.historyWeekTeam, 'flex-start')}
                     </View>
                   );
                 })}
@@ -918,11 +1094,53 @@ export default function PoolDetailScreen({ route, navigation }) {
                 <Ionicons name="repeat" size={18} color={colors.accent} />
                 <Text style={styles.infoText}>Max picks per team: {pool?.max_picks_per_team || 2}</Text>
               </View>
+              {isPointsPool && (
+                <View style={styles.infoRow}>
+                  <Ionicons name="flash" size={18} color={colors.warning} />
+                  <Text style={styles.infoText}>
+                    {pool?.double_weeks
+                      ? `Double weeks: ${pool.double_weeks} per player (${doubleWeeks.remaining} left for you)`
+                      : 'Double weeks: off'}
+                  </Text>
+                </View>
+              )}
               <View style={styles.infoRow}>
                 <Ionicons name="people" size={18} color={colors.info} />
                 <Text style={styles.infoText}>Players: {leaderboard.length}</Text>
               </View>
             </View>
+
+            {isPoolCreator && isPointsPool && adminDoubleWeeks !== null && (
+              <View style={styles.infoCard}>
+                <Text style={styles.infoTitle}>Double Weeks</Text>
+                <Text style={styles.infoSubtitle}>
+                  Let every player pick two teams in a gameweek and score both. Set to 0 to switch off - weeks already played stay scored.
+                </Text>
+                <View style={styles.doubleWeekRow}>
+                  <TouchableOpacity
+                    style={styles.counterButton}
+                    onPress={() => setAdminDoubleWeeks(Math.max(0, adminDoubleWeeks - 1))}
+                  >
+                    <Ionicons name="remove" size={20} color={colors.textPrimary} />
+                  </TouchableOpacity>
+                  <Text style={styles.counterValue}>{adminDoubleWeeks}</Text>
+                  <TouchableOpacity
+                    style={styles.counterButton}
+                    onPress={() => setAdminDoubleWeeks(Math.min(5, adminDoubleWeeks + 1))}
+                  >
+                    <Ionicons name="add" size={20} color={colors.textPrimary} />
+                  </TouchableOpacity>
+                  <View style={{ flex: 1 }} />
+                  <TouchableOpacity
+                    style={[styles.doubleWeekButton, adminDoubleWeeks === (pool?.double_weeks ?? 0) && styles.doubleWeekButtonDisabled]}
+                    onPress={handleSaveDoubleWeekAllowance}
+                    disabled={adminDoubleWeeks === (pool?.double_weeks ?? 0)}
+                  >
+                    <Text style={styles.doubleWeekButtonText}>Save</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
 
             <View style={styles.infoCard}>
               <Text style={styles.infoTitle}>Session Code</Text>

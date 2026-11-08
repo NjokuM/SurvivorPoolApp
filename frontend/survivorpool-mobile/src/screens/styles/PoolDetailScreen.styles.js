@@ -571,6 +571,101 @@ export const createStyles = (colors) => StyleSheet.create({
     fontSize: 13,
     color: colors.textMuted,
   },
+  // Double Week Styles
+  doubleWeekCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  doubleWeekCardActive: {
+    borderColor: colors.warning,
+    backgroundColor: colors.warning + '15',
+  },
+  doubleWeekRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  doubleWeekTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  doubleWeekSub: {
+    fontSize: 12,
+    color: colors.textMuted,
+    marginTop: 2,
+  },
+  doubleWeekButton: {
+    backgroundColor: colors.warning,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  doubleWeekButtonDisabled: {
+    opacity: 0.4,
+  },
+  doubleWeekButtonText: {
+    color: '#1a1a1a',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  doubleWeekButtonOutline: {
+    borderWidth: 1,
+    borderColor: colors.warning,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  doubleWeekButtonOutlineText: {
+    color: colors.warning,
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  doubleWeekChips: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 12,
+  },
+  doubleWeekChip: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    backgroundColor: colors.inputBackground,
+  },
+  doubleWeekChipActive: {
+    backgroundColor: colors.warning,
+  },
+  doubleWeekChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  doubleWeekChipTextActive: {
+    color: '#1a1a1a',
+  },
+  weekPickBadges: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  counterButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.inputBackground,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  counterValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginHorizontal: 16,
+  },
   // Teams Tab Styles
   teamRowInfo: {
     flexDirection: 'row',

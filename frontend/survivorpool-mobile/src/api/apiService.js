@@ -544,6 +544,51 @@ export const getTeamPicks = async (poolId, teamId) => {
   }
 };
 
+// ==================== DOUBLE WEEKS ====================
+// Points-only pools: a member can switch on a gameweek with two picks.
+
+const NO_DOUBLE_WEEKS = { allowance: 0, used: 0, remaining: 0, active_gameweeks: [] };
+
+// Returns { allowance, used, remaining, active_gameweeks: [gw, ...] }
+export const getDoubleWeeks = async (poolId) => {
+  if (USE_MOCK_DATA) return NO_DOUBLE_WEEKS;
+  try {
+    const res = await API.get(`/pools/${poolId}/double-weeks/me`);
+    return res.data;
+  } catch (error) {
+    throw new Error(getErrorMessage(error));
+  }
+};
+
+export const activateDoubleWeek = async (poolId, gameweek) => {
+  try {
+    const res = await API.post(`/pools/${poolId}/double-weeks`, { gameweek });
+    return res.data;
+  } catch (error) {
+    throw new Error(getErrorMessage(error));
+  }
+};
+
+// Also removes the second pick for that week if it hasn't kicked off.
+export const deactivateDoubleWeek = async (poolId, gameweek) => {
+  try {
+    const res = await API.delete(`/pools/${poolId}/double-weeks/${gameweek}`);
+    return res.data;
+  } catch (error) {
+    throw new Error(getErrorMessage(error));
+  }
+};
+
+// Pool admin only: how many double weeks each member gets (0 = off).
+export const setDoubleWeekAllowance = async (poolId, doubleWeeks) => {
+  try {
+    const res = await API.put(`/pools/${poolId}/double-weeks/allowance`, { double_weeks: doubleWeeks });
+    return res.data;
+  } catch (error) {
+    throw new Error(getErrorMessage(error));
+  }
+};
+
 // ==================== COMPETITIONS ====================
 
 export const getCompetitions = async () => {
@@ -757,12 +802,15 @@ export const getHomeScreenData = async (userId, poolId) => {
   // Real API calls - fetch pool first to get competition_id
   const pool = await getPoolById(poolId);
   
-  const [user, leaderboard, teamsRaw, fixturesRaw, allPoolPicks] = await Promise.all([
+  const [user, leaderboard, teamsRaw, fixturesRaw, allPoolPicks, doubleWeeks] = await Promise.all([
     getUser(userId),
     getPoolLeaderboard(poolId),
     getTeams(pool?.competition_id),
     getFixtures({ league: pool?.competition_id }),
     getPoolPicks(poolId),
+    pool?.has_lives === false
+      ? getDoubleWeeks(poolId).catch(() => NO_DOUBLE_WEEKS)
+      : Promise.resolve(NO_DOUBLE_WEEKS),
   ]);
 
   // Find user's stats from pool data
@@ -844,6 +892,7 @@ export const getHomeScreenData = async (userId, poolId) => {
     allPoolPicks: allPicksWithGameweek, // All picks for history
     hasCurrentPick: !!userCurrentGwPick, // Whether user has made pick for current GW
     teams,
+    doubleWeeks,
   };
 };
 
@@ -872,6 +921,10 @@ export default {
   getPoolLeaderboard,
   getTeamLeaderboard,
   getTeamPicks,
+  getDoubleWeeks,
+  activateDoubleWeek,
+  deactivateDoubleWeek,
+  setDoubleWeekAllowance,
   getCompetitions,
   getPickLimits,
   getTeams,

@@ -58,6 +58,9 @@ export default function AdminEditPicksScreen({ route, navigation }) {
   const minGw = gameweekNumbers[0] || 1;
   const maxGw = gameweekNumbers[gameweekNumbers.length - 1] || 1;
   const existingPickForGw = targetPicks.find((p) => p.gameweek === gameweek);
+  // This screen sets a single pick per week - saving over a double week
+  // replaces both of that week's picks with the one chosen here.
+  const isDoubleWeekForGw = targetPicks.filter((p) => p.gameweek === gameweek && p.team_id).length > 1;
 
   const handleSubmit = async () => {
     if (!selectedTeam || !gameweek) return;
@@ -132,7 +135,9 @@ export default function AdminEditPicksScreen({ route, navigation }) {
             <View style={{ alignItems: 'center' }}>
               <Text style={styles.weekText}>Gameweek {gameweek}</Text>
               {existingPickForGw && (
-                <Text style={{ color: colors.info, fontSize: 11 }}>Currently picked</Text>
+                <Text style={{ color: colors.info, fontSize: 11 }}>
+                  {isDoubleWeekForGw ? '⚡ Double week - saving replaces both picks' : 'Currently picked'}
+                </Text>
               )}
             </View>
             <TouchableOpacity

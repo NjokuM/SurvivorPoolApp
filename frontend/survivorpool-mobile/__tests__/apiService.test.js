@@ -28,6 +28,10 @@ import {
   getPoolLeaderboard,
   getTeamLeaderboard,
   getTeamPicks,
+  getDoubleWeeks,
+  activateDoubleWeek,
+  deactivateDoubleWeek,
+  setDoubleWeekAllowance,
   normalizeEmail,
   forgotPassword,
   resetPassword,
@@ -324,6 +328,36 @@ describe('Pools API', () => {
 
     expect(API.get).toHaveBeenCalledWith('/pools/1/team-leaderboard');
     expect(board[0].team_name).toBe('Arsenal');
+  });
+
+  it('getDoubleWeeks fetches the caller\'s status', async () => {
+    API.get.mockResolvedValueOnce({ data: { allowance: 2, used: 0, remaining: 2, active_gameweeks: [] } });
+    const status = await getDoubleWeeks(1);
+    expect(API.get).toHaveBeenCalledWith('/pools/1/double-weeks/me');
+    expect(status.remaining).toBe(2);
+  });
+
+  it('activateDoubleWeek posts the gameweek', async () => {
+    API.post.mockResolvedValueOnce({ data: { allowance: 2, used: 1, remaining: 1, active_gameweeks: [5] } });
+    await activateDoubleWeek(1, 5);
+    expect(API.post).toHaveBeenCalledWith('/pools/1/double-weeks', { gameweek: 5 });
+  });
+
+  it('deactivateDoubleWeek deletes the gameweek', async () => {
+    API.delete.mockResolvedValueOnce({ data: { allowance: 2, used: 0, remaining: 2, active_gameweeks: [] } });
+    await deactivateDoubleWeek(1, 5);
+    expect(API.delete).toHaveBeenCalledWith('/pools/1/double-weeks/5');
+  });
+
+  it('setDoubleWeekAllowance puts the new amount', async () => {
+    API.put.mockResolvedValueOnce({ data: { pool_id: 1, double_weeks: 3 } });
+    await setDoubleWeekAllowance(1, 3);
+    expect(API.put).toHaveBeenCalledWith('/pools/1/double-weeks/allowance', { double_weeks: 3 });
+  });
+
+  it('activateDoubleWeek surfaces the backend error', async () => {
+    API.post.mockRejectedValueOnce({ response: { data: { detail: 'You have no double weeks left in this pool' } } });
+    await expect(activateDoubleWeek(1, 5)).rejects.toThrow('You have no double weeks left in this pool');
   });
 
   it('getTeamPicks calls the per-team endpoint', async () => {
