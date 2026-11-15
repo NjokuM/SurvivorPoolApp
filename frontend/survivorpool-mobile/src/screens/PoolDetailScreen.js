@@ -8,9 +8,6 @@ import apiService from '../api/apiService';
 import { createStyles } from './styles/PoolDetailScreen.styles';
 import { formatGoalDifference } from '../utils/format';
 
-// Matches the backend's per-member cap (app.services.double_weeks)
-const MAX_MEMBER_DOUBLE_WEEKS = 10;
-
 export default function PoolDetailScreen({ route, navigation }) {
   const { poolId, userId, poolName } = route.params;
   const { colors } = useTheme();
@@ -41,7 +38,6 @@ export default function PoolDetailScreen({ route, navigation }) {
   // In a double week with both picks made, which of the two a new selection replaces
   const [editPickId, setEditPickId] = useState(null);
   const [adminDoubleWeeks, setAdminDoubleWeeks] = useState(null);
-  const [memberDoubleWeeks, setMemberDoubleWeeks] = useState([]);
 
   const loadData = useCallback(async () => {
     try {
@@ -66,11 +62,6 @@ export default function PoolDetailScreen({ route, navigation }) {
       setHasCurrentPick(data.hasCurrentPick || false);
       if (data.doubleWeeks) setDoubleWeeks(data.doubleWeeks);
       setAdminDoubleWeeks(data.pool?.double_weeks ?? 0);
-      if (data.pool?.created_by === userId && data.pool?.has_lives === false) {
-        apiService.getMemberDoubleWeeks(poolId)
-          .then(setMemberDoubleWeeks)
-          .catch((error) => console.error('Error loading member double weeks:', error));
-      }
       setHistoryWeek(data.currentGameweek);
       if (!pickGameweek) setPickGameweek(data.currentGameweek); // Default to current gameweek
     } catch (error) {
@@ -344,17 +335,6 @@ export default function PoolDetailScreen({ route, navigation }) {
       loadData();
     } catch (error) {
       Toast.show({ type: 'error', text1: 'Could not update double weeks', text2: error.message });
-    }
-  };
-
-  // value: a number, or null to put the member back on the pool's number
-  const handleSetMemberDoubleWeeks = async (member, value) => {
-    try {
-      const updated = await apiService.setMemberDoubleWeeks(poolId, member.user_id, value);
-      setMemberDoubleWeeks((prev) => prev.map((m) => (m.user_id === updated.user_id ? updated : m)));
-      if (updated.user_id === userId) loadData();
-    } catch (error) {
-      Toast.show({ type: 'error', text1: `Could not update ${member.username}`, text2: error.message });
     }
   };
 
@@ -1134,7 +1114,7 @@ export default function PoolDetailScreen({ route, navigation }) {
               <View style={styles.infoCard}>
                 <Text style={styles.infoTitle}>Double Weeks</Text>
                 <Text style={styles.infoSubtitle}>
-                  Let every player pick two teams in a gameweek and score both. Set to 0 to switch off - weeks already played stay scored.
+                  Let every player pick two teams in a gameweek and score both. Set to 0 to switch off - weeks already played stay scored. To give one player their own number, use the edit button next to them in Pool Members.
                 </Text>
                 <View style={styles.doubleWeekRow}>
                   <TouchableOpacity
@@ -1159,50 +1139,6 @@ export default function PoolDetailScreen({ route, navigation }) {
                     <Text style={styles.doubleWeekButtonText}>Save</Text>
                   </TouchableOpacity>
                 </View>
-
-                {memberDoubleWeeks.length > 0 && (
-                  <>
-                    <Text style={[styles.infoTitle, styles.memberDoubleWeeksTitle]}>Per Player</Text>
-                    <Text style={styles.infoSubtitle}>
-                      Give someone a different number - e.g. one extra for each gameweek they missed by joining late.
-                    </Text>
-                    {memberDoubleWeeks.map((member) => (
-                      <View key={member.user_id} style={styles.memberDoubleWeekRow}>
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.memberDoubleWeekName} numberOfLines={1}>
-                            {member.username}{member.user_id === userId ? ' (You)' : ''}
-                          </Text>
-                          <Text style={styles.memberDoubleWeekMeta}>
-                            {member.used} used · {member.is_custom ? 'custom' : 'pool default'}
-                          </Text>
-                        </View>
-                        {member.is_custom && (
-                          <TouchableOpacity
-                            style={[styles.counterButton, { marginRight: 8 }]}
-                            onPress={() => handleSetMemberDoubleWeeks(member, null)}
-                          >
-                            <Ionicons name="refresh" size={18} color={colors.textPrimary} />
-                          </TouchableOpacity>
-                        )}
-                        <TouchableOpacity
-                          style={[styles.counterButton, member.allowance <= member.used && styles.doubleWeekButtonDisabled]}
-                          onPress={() => handleSetMemberDoubleWeeks(member, member.allowance - 1)}
-                          disabled={member.allowance <= member.used}
-                        >
-                          <Ionicons name="remove" size={20} color={colors.textPrimary} />
-                        </TouchableOpacity>
-                        <Text style={styles.counterValue}>{member.allowance}</Text>
-                        <TouchableOpacity
-                          style={[styles.counterButton, member.allowance >= MAX_MEMBER_DOUBLE_WEEKS && styles.doubleWeekButtonDisabled]}
-                          onPress={() => handleSetMemberDoubleWeeks(member, member.allowance + 1)}
-                          disabled={member.allowance >= MAX_MEMBER_DOUBLE_WEEKS}
-                        >
-                          <Ionicons name="add" size={20} color={colors.textPrimary} />
-                        </TouchableOpacity>
-                      </View>
-                    ))}
-                  </>
-                )}
               </View>
             )}
 
