@@ -7,6 +7,7 @@ import { useTheme } from '../theme/colors';
 import apiService from '../api/apiService';
 import { createStyles } from './styles/PoolDetailScreen.styles';
 import { formatGoalDifference } from '../utils/format';
+import { FEATURES } from '../config/features';
 
 export default function PoolDetailScreen({ route, navigation }) {
   const { poolId, userId, poolName } = route.params;
@@ -33,6 +34,7 @@ export default function PoolDetailScreen({ route, navigation }) {
   const [historyWeek, setHistoryWeek] = useState(null);
   const [historyFilter, setHistoryFilter] = useState('week'); // 'week' or 'user'
   const [selectedHistoryUser, setSelectedHistoryUser] = useState(null);
+  const [standingsView, setStandingsView] = useState('players'); // 'players' or 'teams'
   const [pickGameweek, setPickGameweek] = useState(null); // Gameweek for making picks
   const [doubleWeeks, setDoubleWeeks] = useState({ allowance: 0, used: 0, remaining: 0, active_gameweeks: [] });
   // In a double week with both picks made, which of the two a new selection replaces
@@ -62,7 +64,7 @@ export default function PoolDetailScreen({ route, navigation }) {
       setHasCurrentPick(data.hasCurrentPick || false);
       if (data.doubleWeeks) setDoubleWeeks(data.doubleWeeks);
       setAdminDoubleWeeks(data.pool?.double_weeks ?? 0);
-      setHistoryWeek(data.currentGameweek);
+      setHistoryWeek((week) => week ?? data.currentGameweek);
       if (!pickGameweek) setPickGameweek(data.currentGameweek); // Default to current gameweek
     } catch (error) {
       console.error('Error loading pool data:', error);
@@ -381,10 +383,17 @@ export default function PoolDetailScreen({ route, navigation }) {
     { id: 'summary', label: 'Summary', icon: 'home' },
     { id: 'pick', label: 'Make Pick', icon: 'football' },
     { id: 'standings', label: 'Standings', icon: 'trophy' },
-    { id: 'teams', label: 'Teams', icon: 'shield' },
     { id: 'history', label: 'History', icon: 'time' },
     { id: 'info', label: 'Info', icon: 'information-circle' },
-  ];
+  ].filter((tab) => tab.id !== 'history' || FEATURES.historyTab);
+
+  // Gameweeks the Summary picks card can step through (and, newest first,
+  // the weeks a player's picks page lists).
+  const firstGameweek = Math.min(pool?.start_gameweek || 1, currentGameweek || 1);
+  const summaryWeek = historyWeek ?? currentGameweek;
+  const playedGameweeks = currentGameweek
+    ? [...Array(currentGameweek - firstGameweek + 1)].map((_, i) => currentGameweek - i)
+    : [];
 
   return (
     <View style={styles.container}>
@@ -533,11 +542,29 @@ export default function PoolDetailScreen({ route, navigation }) {
             {/* Picks for This Week - All Pool Members */}
             <View style={styles.recentPickCard}>
               <View style={styles.cardHeader}>
-                <Text style={styles.cardTitle}>Picks This Week</Text>
-                <Text style={styles.cardSubtitle}>Gameweek {currentGameweek}</Text>
+                <Text style={styles.cardTitle}>
+                  {summaryWeek === currentGameweek ? 'Picks This Week' : 'Picks'}
+                </Text>
+                <View style={styles.summaryWeekSelector}>
+                  <TouchableOpacity
+                    style={styles.weekButton}
+                    onPress={() => setHistoryWeek(Math.max(firstGameweek, summaryWeek - 1))}
+                    disabled={summaryWeek <= firstGameweek}
+                  >
+                    <Ionicons name="chevron-back" size={18} color={summaryWeek <= firstGameweek ? colors.textMuted : colors.textPrimary} />
+                  </TouchableOpacity>
+                  <Text style={styles.cardSubtitle}>GW{summaryWeek}</Text>
+                  <TouchableOpacity
+                    style={styles.weekButton}
+                    onPress={() => setHistoryWeek(Math.min(currentGameweek, summaryWeek + 1))}
+                    disabled={summaryWeek >= currentGameweek}
+                  >
+                    <Ionicons name="chevron-forward" size={18} color={summaryWeek >= currentGameweek ? colors.textMuted : colors.textPrimary} />
+                  </TouchableOpacity>
+                </View>
               </View>
               {leaderboard.map((entry) => {
-                const memberPicks = allPoolPicks.filter(p => p.user_id === entry.user_id && p.gameweek === currentGameweek && p.team_id);
+                const memberPicks = allPoolPicks.filter(p => p.user_id === entry.user_id && p.gameweek === summaryWeek && p.team_id);
                 const isCurrentUser = entry.user_id === userId;
                 
                 return (
@@ -828,9 +855,29 @@ export default function PoolDetailScreen({ route, navigation }) {
         {/* STANDINGS TAB */}
         {activeTab === 'standings' && (
           <>
+            <View style={styles.historyFilterRow}>
+              {[
+                { id: 'players', label: 'Players', icon: 'person' },
+                { id: 'teams', label: 'Teams', icon: 'shield' },
+              ].map((view) => (
+                <TouchableOpacity
+                  key={view.id}
+                  style={[styles.historyFilterButton, standingsView === view.id && styles.historyFilterButtonActive]}
+                  onPress={() => setStandingsView(view.id)}
+                >
+                  <Ionicons name={view.icon} size={16} color={standingsView === view.id ? colors.textOnAccent : colors.textMuted} />
+                  <Text style={[styles.historyFilterText, standingsView === view.id && styles.historyFilterTextActive]}>
+                    {view.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {standingsView === 'players' && (
+            <>
             <View style={styles.standingsHeader}>
               <Text style={styles.standingsTitle}>Pool Standings</Text>
-              <Text style={styles.standingsSubtitle}>{leaderboard.length} players</Text>
+              <Text style={styles.standingsSubtitle}>{leaderboard.length} players · tap a player to see their picks</Text>
             </View>
 
             {/* Column Headers */}
@@ -849,9 +896,26 @@ export default function PoolDetailScreen({ route, navigation }) {
               const isCurrentUser = entry.user_id === userId;
               const pickCount = allPoolPicks.filter(p => p.user_id === entry.user_id).length;
               return (
-                <View 
-                  key={entry.user_id} 
+                <TouchableOpacity
+                  key={entry.user_id}
                   style={[styles.standingsRow, isCurrentUser && styles.standingsRowHighlight]}
+                  onPress={() => navigation.navigate('PlayerPicks', {
+                    username: entry.username,
+                    isCurrentUser,
+                    totalPoints: entry.total_points || 0,
+                    goalDifference: entry.goal_difference,
+                    livesLeft: pool?.has_lives !== false ? (entry.lives_left || 0) : null,
+                    gameweeks: playedGameweeks,
+                    picks: allPoolPicks
+                      .filter(p => p.user_id === entry.user_id && p.team_id)
+                      .map(p => ({
+                        id: p.id,
+                        gameweek: p.gameweek,
+                        result: p.result?.toUpperCase(),
+                        teamName: teams.find(t => t.id === p.team_id)?.name || 'TBD',
+                      })),
+                  })}
+                  activeOpacity={0.7}
                 >
                   <View style={[
                     styles.standingsRank,
@@ -879,15 +943,15 @@ export default function PoolDetailScreen({ route, navigation }) {
                       ))}
                     </View>
                   )}
-                </View>
+                </TouchableOpacity>
               );
             })}
-          </>
-        )}
+            </>
+            )}
 
-        {/* TEAMS TAB */}
-        {activeTab === 'teams' && (
-          <>
+            {/* Teams view - points players earned picking each team */}
+            {standingsView === 'teams' && (
+            <>
             <View style={styles.standingsHeader}>
               <Text style={styles.standingsTitle}>Team Leaderboard</Text>
               <Text style={styles.standingsSubtitle}>Points earned by players picking each team</Text>
@@ -938,6 +1002,8 @@ export default function PoolDetailScreen({ route, navigation }) {
                 <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
               </TouchableOpacity>
             ))}
+            </>
+            )}
           </>
         )}
 

@@ -712,6 +712,10 @@ export const createStyles = (colors) => StyleSheet.create({
     fontWeight: '700',
     color: colors.textPrimary,
   },
+  summaryWeekSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   teamPickSubRow: {
     marginLeft: 24,
     paddingVertical: 10,
