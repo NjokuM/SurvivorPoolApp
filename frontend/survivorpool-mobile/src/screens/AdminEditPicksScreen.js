@@ -10,6 +10,9 @@ import apiService from '../api/apiService';
 // admin authorization instead of the caller's own.
 import { createStyles } from './styles/PoolDetailScreen.styles';
 
+// Matches the backend's per-member cap (app.services.double_weeks)
+const MAX_MEMBER_DOUBLE_WEEKS = 10;
+
 export default function AdminEditPicksScreen({ route, navigation }) {
   const { poolId, targetUserId, targetUsername } = route.params;
   const { colors } = useTheme();
@@ -23,6 +26,8 @@ export default function AdminEditPicksScreen({ route, navigation }) {
   const [targetPicks, setTargetPicks] = useState([]);
   const [gameweek, setGameweek] = useState(null);
   const [selectedTeam, setSelectedTeam] = useState(null);
+  // { allowance, used, is_custom } - points pools only
+  const [memberDoubleWeeks, setMemberDoubleWeeks] = useState(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -34,6 +39,11 @@ export default function AdminEditPicksScreen({ route, navigation }) {
       setTeams(data.teams);
       setFixtures(data.fixtures);
       setTargetPicks(data.userPicks);
+      if (data.pool?.has_lives === false) {
+        apiService.getMemberDoubleWeeks(poolId)
+          .then((members) => setMemberDoubleWeeks(members.find((m) => m.user_id === targetUserId) || null))
+          .catch((error) => console.error('Error loading double weeks:', error));
+      }
 
       setGameweek((current) => {
         if (current) return current;
@@ -61,6 +71,15 @@ export default function AdminEditPicksScreen({ route, navigation }) {
   // This screen sets a single pick per week - saving over a double week
   // replaces both of that week's picks with the one chosen here.
   const isDoubleWeekForGw = targetPicks.filter((p) => p.gameweek === gameweek && p.team_id).length > 1;
+
+  // value: a number, or null to put them back on the pool's number
+  const handleSetDoubleWeeks = async (value) => {
+    try {
+      setMemberDoubleWeeks(await apiService.setMemberDoubleWeeks(poolId, targetUserId, value));
+    } catch (error) {
+      Toast.show({ type: 'error', text1: 'Could not update double weeks', text2: error.message });
+    }
+  };
 
   const handleSubmit = async () => {
     if (!selectedTeam || !gameweek) return;
@@ -115,6 +134,48 @@ export default function AdminEditPicksScreen({ route, navigation }) {
       </View>
 
       <ScrollView>
+        {memberDoubleWeeks && (
+          <View style={[styles.infoCard, { marginHorizontal: 16 }]}>
+            <Text style={styles.infoTitle}>⚡ Double Weeks</Text>
+            <Text style={styles.infoSubtitle}>
+              Give {targetUsername} their own number - e.g. one extra for each gameweek they missed by joining late.
+            </Text>
+            <View style={styles.doubleWeekRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.memberDoubleWeekName}>
+                  {memberDoubleWeeks.allowance} {memberDoubleWeeks.allowance === 1 ? 'double week' : 'double weeks'}
+                </Text>
+                <Text style={styles.memberDoubleWeekMeta}>
+                  {memberDoubleWeeks.used} used · {memberDoubleWeeks.is_custom ? 'custom' : 'pool default'}
+                </Text>
+              </View>
+              {memberDoubleWeeks.is_custom && (
+                <TouchableOpacity
+                  style={[styles.counterButton, { marginRight: 8 }]}
+                  onPress={() => handleSetDoubleWeeks(null)}
+                >
+                  <Ionicons name="refresh" size={18} color={colors.textPrimary} />
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                style={[styles.counterButton, memberDoubleWeeks.allowance <= memberDoubleWeeks.used && styles.doubleWeekButtonDisabled]}
+                onPress={() => handleSetDoubleWeeks(memberDoubleWeeks.allowance - 1)}
+                disabled={memberDoubleWeeks.allowance <= memberDoubleWeeks.used}
+              >
+                <Ionicons name="remove" size={20} color={colors.textPrimary} />
+              </TouchableOpacity>
+              <Text style={styles.counterValue}>{memberDoubleWeeks.allowance}</Text>
+              <TouchableOpacity
+                style={[styles.counterButton, memberDoubleWeeks.allowance >= MAX_MEMBER_DOUBLE_WEEKS && styles.doubleWeekButtonDisabled]}
+                onPress={() => handleSetDoubleWeeks(memberDoubleWeeks.allowance + 1)}
+                disabled={memberDoubleWeeks.allowance >= MAX_MEMBER_DOUBLE_WEEKS}
+              >
+                <Ionicons name="add" size={20} color={colors.textPrimary} />
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
         <View style={styles.pickHeader}>
           <Text style={styles.pickTitle}>Set a pick for {targetUsername}</Text>
           <Text style={styles.pickSubtitle}>
