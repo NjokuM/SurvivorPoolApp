@@ -131,3 +131,17 @@ class DoubleWeekActivate(BaseModel):
 
 class DoubleWeekAllowanceUpdate(BaseModel):
     double_weeks: int = Field(ge=0)
+
+
+class MemberDoubleWeekUpdate(BaseModel):
+    # None puts the member back on the pool's number
+    double_weeks: Optional[int] = Field(None, ge=0)
+
+
+class MemberDoubleWeeks(BaseModel):
+    user_id: int
+    username: str
+    allowance: int
+    used: int
+    # True when the admin has given this member their own number
+    is_custom: bool

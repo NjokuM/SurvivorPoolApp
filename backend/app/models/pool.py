@@ -39,6 +39,9 @@ class PoolUserStats(Base):
     total_points = Column(Integer, default=0)
     lives_left = Column(Integer, nullable=False)
     eliminated_gameweek = Column(Integer)
+    # Admin override of pool.double_weeks for this member (e.g. extra double
+    # weeks for someone who joined late). NULL = follow the pool's number.
+    double_weeks_override = Column(Integer, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 

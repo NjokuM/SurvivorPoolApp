@@ -19,9 +19,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from app.models.competiton_data import Fixture
 from app.models.pick import Pick
-from app.models.pool import Pool, DoubleWeek
+from app.models.pool import Pool, PoolUserStats, DoubleWeek
 
 MAX_DOUBLE_WEEKS = 5
+# A single member can be given more than the pool-wide cap, so someone who
+# joined late can still fit in every pick (one extra per missed gameweek).
+MAX_MEMBER_DOUBLE_WEEKS = 10
 
 
 def suggested_double_weeks(team_count: int, max_picks_per_team: int,
@@ -52,6 +55,16 @@ async def gameweek_last_kickoff(db: AsyncSession, competition_id: int, gameweek:
     return as_utc(last) if last else None
 
 
+def allowance_for(pool: Pool, stats: Optional[PoolUserStats]) -> int:
+    """How many double weeks a member gets: their override if the admin set
+    one, otherwise the pool's number. Always 0 in lives pools."""
+    if pool.has_lives:
+        return 0
+    if stats is not None and stats.double_weeks_override is not None:
+        return stats.double_weeks_override
+    return pool.double_weeks
+
+
 async def is_active(db: AsyncSession, pool_id: int, user_id: int, gameweek: int) -> bool:
     res = await db.execute(
         select(DoubleWeek.id).where(
@@ -72,11 +85,24 @@ async def active_gameweeks(db: AsyncSession, pool_id: int, user_id: int) -> List
     return [row[0] for row in res.all()]
 
 
+async def used_counts(db: AsyncSession, pool_id: int) -> dict:
+    """{user_id: double weeks used} for members of this pool who used any."""
+    res = await db.execute(
+        select(DoubleWeek.user_id, func.count(DoubleWeek.id))
+        .where(DoubleWeek.pool_id == pool_id)
+        .group_by(DoubleWeek.user_id)
+    )
+    return {user_id: count for user_id, count in res.all()}
+
+
 async def max_used_in_pool(db: AsyncSession, pool_id: int) -> int:
-    """The most double weeks any single member of this pool has used."""
+    """The most double weeks used by any member who follows the pool's
+    number - members with their own override don't constrain it."""
     res = await db.execute(
         select(func.count(DoubleWeek.id))
-        .where(DoubleWeek.pool_id == pool_id)
+        .join(PoolUserStats, (PoolUserStats.pool_id == DoubleWeek.pool_id)
+              & (PoolUserStats.user_id == DoubleWeek.user_id))
+        .where(DoubleWeek.pool_id == pool_id, PoolUserStats.double_weeks_override.is_(None))
         .group_by(DoubleWeek.user_id)
     )
     counts = [row[0] for row in res.all()]

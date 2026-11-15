@@ -3,12 +3,15 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.database import get_db
-from app.models.pool import Pool, DoubleWeek
+from app.models.pool import Pool, PoolUserStats, DoubleWeek
 from app.models.user import User
 from app.crud.pool_crud import get_pool_user_stats
 from app.dependencies.admin import require_pool_admin
 from app.dependencies.security import get_current_user
-from app.schemas.pool_schema import DoubleWeekStatus, DoubleWeekActivate, DoubleWeekAllowanceUpdate
+from typing import List
+from app.schemas.pool_schema import (
+    DoubleWeekStatus, DoubleWeekActivate, DoubleWeekAllowanceUpdate, MemberDoubleWeekUpdate, MemberDoubleWeeks,
+)
 from app.services import double_weeks as dw
 
 router = APIRouter(tags=["Double Weeks"])
@@ -25,7 +28,7 @@ async def _load_member_pool(db: AsyncSession, pool_id: int, user_id: int) -> Poo
 
 async def _status(db: AsyncSession, pool: Pool, user_id: int) -> DoubleWeekStatus:
     active = await dw.active_gameweeks(db, pool.id, user_id)
-    allowance = 0 if pool.has_lives else pool.double_weeks
+    allowance = dw.allowance_for(pool, await get_pool_user_stats(db, pool.id, user_id))
     return DoubleWeekStatus(
         allowance=allowance,
         used=len(active),
@@ -113,7 +116,8 @@ async def set_double_week_allowance(
     db: AsyncSession = Depends(get_db),
 ):
     """Pool admin: set how many double weeks each member gets (0 switches
-    the feature off for future weeks - weeks already played stay scored)."""
+    the feature off for future weeks - weeks already played stay scored).
+    Members with their own number (see below) keep it."""
     if pool.has_lives:
         raise HTTPException(status_code=400, detail="Double weeks are only available in points-only pools")
     if body.double_weeks > dw.MAX_DOUBLE_WEEKS:
@@ -127,3 +131,68 @@ async def set_double_week_allowance(
     pool.double_weeks = body.double_weeks
     await db.commit()
     return {"pool_id": pool.id, "double_weeks": pool.double_weeks}
+
+
+@router.get("/pools/{pool_id}/double-weeks/members", response_model=List[MemberDoubleWeeks])
+async def list_member_double_weeks(
+    pool: Pool = Depends(require_pool_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Pool admin: every member's double week allowance and usage."""
+    res = await db.execute(
+        select(PoolUserStats, User.userName)
+        .join(User, User.id == PoolUserStats.user_id)
+        .where(PoolUserStats.pool_id == pool.id)
+        .order_by(User.userName)
+    )
+    used = await dw.used_counts(db, pool.id)
+    return [
+        MemberDoubleWeeks(
+            user_id=stats.user_id,
+            username=username,
+            allowance=dw.allowance_for(pool, stats),
+            used=used.get(stats.user_id, 0),
+            is_custom=stats.double_weeks_override is not None,
+        )
+        for stats, username in res.all()
+    ]
+
+
+@router.put("/pools/{pool_id}/double-weeks/members/{user_id}", response_model=MemberDoubleWeeks)
+async def set_member_double_weeks(
+    user_id: int,
+    body: MemberDoubleWeekUpdate,
+    pool: Pool = Depends(require_pool_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Pool admin: give one member their own number of double weeks - e.g.
+    more for someone who joined late. null puts them back on the pool's."""
+    if pool.has_lives:
+        raise HTTPException(status_code=400, detail="Double weeks are only available in points-only pools")
+    stats = await get_pool_user_stats(db, pool.id, user_id)
+    if not stats:
+        raise HTTPException(status_code=404, detail="That user isn't a member of this pool")
+    if body.double_weeks is not None and body.double_weeks > dw.MAX_MEMBER_DOUBLE_WEEKS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"A member can have at most {dw.MAX_MEMBER_DOUBLE_WEEKS} double weeks",
+        )
+
+    used = len(await dw.active_gameweeks(db, pool.id, user_id))
+    new_allowance = pool.double_weeks if body.double_weeks is None else body.double_weeks
+    if new_allowance < used:
+        raise HTTPException(
+            status_code=400,
+            detail=f"They've already used {used} double weeks - set at least {used}",
+        )
+
+    stats.double_weeks_override = body.double_weeks
+    await db.commit()
+    username = (await db.execute(select(User.userName).where(User.id == user_id))).scalar_one()
+    return MemberDoubleWeeks(
+        user_id=user_id,
+        username=username,
+        allowance=dw.allowance_for(pool, stats),
+        used=used,
+        is_custom=stats.double_weeks_override is not None,
+    )

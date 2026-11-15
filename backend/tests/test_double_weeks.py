@@ -325,6 +325,113 @@ class TestAdminAllowance:
         assert (await self._set(client, setup, 0)).status_code == 200
 
 
+class TestMemberAllowance:
+    """Per-member override, e.g. extra double weeks for a late joiner."""
+
+    async def _set(self, client, setup, user, n, admin=None, pool=None):
+        pool = pool or setup["pool"]
+        return await client.put(f"/pools/{pool.id}/double-weeks/members/{user.id}",
+                                json={"double_weeks": n}, headers=_h(admin or setup["alice"]))
+
+    @pytest.mark.asyncio
+    async def test_override_changes_only_that_member(self, client, setup):
+        bob, alice = setup["bob"], setup["alice"]
+        res = await self._set(client, setup, bob, 6)
+        assert res.status_code == 200
+        assert res.json() == {"user_id": bob.id, "username": "bob", "allowance": 6, "used": 0, "is_custom": True}
+
+        pool = setup["pool"]
+        bob_status = (await client.get(f"/pools/{pool.id}/double-weeks/me", headers=_h(bob))).json()
+        alice_status = (await client.get(f"/pools/{pool.id}/double-weeks/me", headers=_h(alice))).json()
+        assert bob_status["allowance"] == 6
+        assert alice_status["allowance"] == 2
+
+    @pytest.mark.asyncio
+    async def test_override_lets_member_go_past_pool_number(self, client, setup):
+        bob = setup["bob"]
+        await self._set(client, setup, bob, 1)
+        assert (await _activate(client, setup, bob, 2)).status_code == 200
+        assert (await _activate(client, setup, bob, 3)).status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_reset_to_pool_number(self, client, setup):
+        bob = setup["bob"]
+        await self._set(client, setup, bob, 6)
+        res = await self._set(client, setup, bob, None)
+        assert res.status_code == 200
+        assert res.json()["allowance"] == 2
+        assert res.json()["is_custom"] is False
+
+    @pytest.mark.asyncio
+    async def test_pool_change_doesnt_touch_override(self, client, setup):
+        pool, bob = setup["pool"], setup["bob"]
+        await self._set(client, setup, bob, 6)
+        await client.put(f"/pools/{pool.id}/double-weeks/allowance", json={"double_weeks": 3}, headers=_h(setup["alice"]))
+        members = (await client.get(f"/pools/{pool.id}/double-weeks/members", headers=_h(setup["alice"]))).json()
+        assert {m["username"]: m["allowance"] for m in members} == {"alice": 3, "bob": 6}
+
+    @pytest.mark.asyncio
+    async def test_overridden_member_doesnt_block_pool_change(self, client, setup):
+        """bob has his own 6 and used 2 - the pool can still drop to 1."""
+        pool, bob = setup["pool"], setup["bob"]
+        await self._set(client, setup, bob, 6)
+        await _activate(client, setup, bob, 2)
+        await _activate(client, setup, bob, 3)
+        res = await client.put(f"/pools/{pool.id}/double-weeks/allowance", json={"double_weeks": 1}, headers=_h(setup["alice"]))
+        assert res.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_cannot_go_below_used(self, client, setup):
+        bob = setup["bob"]
+        await _activate(client, setup, bob, 2)
+        await _activate(client, setup, bob, 3)
+        assert (await self._set(client, setup, bob, 1)).status_code == 400
+        assert (await self._set(client, setup, bob, 2)).status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_too_many_rejected(self, client, setup):
+        assert (await self._set(client, setup, setup["bob"], 11)).status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_non_admin_forbidden(self, client, setup):
+        bob = setup["bob"]
+        assert (await self._set(client, setup, bob, 6, admin=bob)).status_code == 403
+        pool = setup["pool"]
+        assert (await client.get(f"/pools/{pool.id}/double-weeks/members", headers=_h(bob))).status_code == 403
+
+    @pytest.mark.asyncio
+    async def test_lives_pool_rejected(self, client, setup):
+        assert (await self._set(client, setup, setup["bob"], 4, pool=setup["lives_pool"])).status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_non_member_404(self, client, db_session, setup):
+        carol = User(userName="carol", email="carol@x.com", password=hash_password("pw"), firstName="C", lastName="C")
+        db_session.add(carol)
+        await db_session.commit()
+        assert (await self._set(client, setup, carol, 4)).status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_members_list_shows_usage(self, client, setup):
+        pool, bob = setup["pool"], setup["bob"]
+        await _activate(client, setup, bob, 2)
+        members = (await client.get(f"/pools/{pool.id}/double-weeks/members", headers=_h(setup["alice"]))).json()
+        by_name = {m["username"]: m for m in members}
+        assert by_name["bob"]["used"] == 1
+        assert by_name["alice"]["used"] == 0
+
+    @pytest.mark.asyncio
+    async def test_admin_edit_uses_override(self, client, setup):
+        pool, bob = setup["pool"], setup["bob"]
+        await self._set(client, setup, bob, 0)
+        res = await client.put(f"/admin/pools/{pool.id}/users/{bob.id}/picks", headers=_h(setup["alice"]), json={
+            "picks": [
+                {"fixture_id": setup["f1"].id, "team_id": setup["a"].id},
+                {"fixture_id": setup["f2"].id, "team_id": setup["c"].id},
+            ],
+        })
+        assert res.status_code == 400
+
+
 class TestAdminEditPicks:
     @pytest.mark.asyncio
     async def test_admin_can_enter_double_week(self, client, db_session, setup):

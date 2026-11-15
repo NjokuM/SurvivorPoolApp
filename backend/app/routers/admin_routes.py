@@ -102,6 +102,7 @@ async def admin_set_user_picks(
         entries_by_gameweek[fixture.gameweek].append((entry, fixture))
 
     active_double_weeks = set(await double_weeks.active_gameweeks(db, pool_id, user_id))
+    allowance = double_weeks.allowance_for(pool, stats)
     for gw, entries in entries_by_gameweek.items():
         if len(entries) > 2:
             raise HTTPException(status_code=400, detail=f"Gameweek {gw} can have at most two picks")
@@ -111,7 +112,7 @@ async def admin_set_user_picks(
             if entries[0][1].id == entries[1][1].id:
                 raise HTTPException(status_code=400, detail=f"Gameweek {gw}'s two picks must be from different matches")
             if gw not in active_double_weeks:
-                if len(active_double_weeks) >= pool.double_weeks:
+                if len(active_double_weeks) >= allowance:
                     raise HTTPException(status_code=400, detail="This member has no double weeks left")
                 active_double_weeks.add(gw)
 
