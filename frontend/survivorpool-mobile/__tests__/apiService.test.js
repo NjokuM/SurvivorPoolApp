@@ -32,6 +32,8 @@ import {
   activateDoubleWeek,
   deactivateDoubleWeek,
   setDoubleWeekAllowance,
+  getMemberDoubleWeeks,
+  setMemberDoubleWeeks,
   normalizeEmail,
   forgotPassword,
   resetPassword,
@@ -353,6 +355,21 @@ describe('Pools API', () => {
     API.put.mockResolvedValueOnce({ data: { pool_id: 1, double_weeks: 3 } });
     await setDoubleWeekAllowance(1, 3);
     expect(API.put).toHaveBeenCalledWith('/pools/1/double-weeks/allowance', { double_weeks: 3 });
+  });
+
+  it('getMemberDoubleWeeks lists members', async () => {
+    API.get.mockResolvedValueOnce({ data: [{ user_id: 2, username: 'bob', allowance: 6, used: 0, is_custom: true }] });
+    const res = await getMemberDoubleWeeks(1);
+    expect(API.get).toHaveBeenCalledWith('/pools/1/double-weeks/members');
+    expect(res[0].allowance).toBe(6);
+  });
+
+  it('setMemberDoubleWeeks puts the number, or null to reset', async () => {
+    API.put.mockResolvedValue({ data: {} });
+    await setMemberDoubleWeeks(1, 2, 6);
+    expect(API.put).toHaveBeenCalledWith('/pools/1/double-weeks/members/2', { double_weeks: 6 });
+    await setMemberDoubleWeeks(1, 2, null);
+    expect(API.put).toHaveBeenCalledWith('/pools/1/double-weeks/members/2', { double_weeks: null });
   });
 
   it('activateDoubleWeek surfaces the backend error', async () => {

@@ -589,6 +589,26 @@ export const setDoubleWeekAllowance = async (poolId, doubleWeeks) => {
   }
 };
 
+// Pool admin: every member's double week allowance and usage
+export const getMemberDoubleWeeks = async (poolId) => {
+  try {
+    const res = await API.get(`/pools/${poolId}/double-weeks/members`);
+    return res.data;
+  } catch (error) {
+    throw new Error(getErrorMessage(error));
+  }
+};
+
+// Pool admin: give one member their own number (null = back to the pool's)
+export const setMemberDoubleWeeks = async (poolId, memberId, doubleWeeks) => {
+  try {
+    const res = await API.put(`/pools/${poolId}/double-weeks/members/${memberId}`, { double_weeks: doubleWeeks });
+    return res.data;
+  } catch (error) {
+    throw new Error(getErrorMessage(error));
+  }
+};
+
 // ==================== COMPETITIONS ====================
 
 export const getCompetitions = async () => {
@@ -925,6 +945,8 @@ export default {
   activateDoubleWeek,
   deactivateDoubleWeek,
   setDoubleWeekAllowance,
+  getMemberDoubleWeeks,
+  setMemberDoubleWeeks,
   getCompetitions,
   getPickLimits,
   getTeams,

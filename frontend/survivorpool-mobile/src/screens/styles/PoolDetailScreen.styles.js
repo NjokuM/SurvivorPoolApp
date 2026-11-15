@@ -666,6 +666,26 @@ export const createStyles = (colors) => StyleSheet.create({
     color: colors.textPrimary,
     marginHorizontal: 16,
   },
+  memberDoubleWeeksTitle: {
+    marginTop: 20,
+  },
+  memberDoubleWeekRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  memberDoubleWeekName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  memberDoubleWeekMeta: {
+    fontSize: 12,
+    color: colors.textMuted,
+    marginTop: 2,
+  },
   // Teams Tab Styles
   teamRowInfo: {
     flexDirection: 'row',
