@@ -23,6 +23,11 @@ export default function JoinCreatePoolScreen({ route, navigation }) {
   const [hasLives, setHasLives] = useState(true);
   const [totalLives, setTotalLives] = useState('3');
   const [maxPicksPerTeam, setMaxPicksPerTeam] = useState('2');
+  // Points-only pools: double weeks per player. Follows the suggested amount
+  // for the chosen league/max picks until the creator changes it themselves.
+  const [pickLimits, setPickLimits] = useState(null);
+  const [doubleWeeks, setDoubleWeeks] = useState(0);
+  const [doubleWeeksTouched, setDoubleWeeksTouched] = useState(false);
   const [minPicksPerTeam, setMinPicksPerTeam] = useState(1);
   const [createdCode, setCreatedCode] = useState(null);
   const [createdPool, setCreatedPool] = useState(null);
@@ -71,6 +76,8 @@ export default function JoinCreatePoolScreen({ route, navigation }) {
       try {
         const limits = await apiService.getPickLimits(selectedLeague.id);
         if (cancelled) return;
+        setPickLimits(limits);
+        setDoubleWeeksTouched(false);
         setMinPicksPerTeam(limits.min_max_picks_per_team || 1);
         setMaxPicksPerTeam(String(limits.default_max_picks_per_team || limits.min_max_picks_per_team || 2));
       } catch (error) {
@@ -81,6 +88,17 @@ export default function JoinCreatePoolScreen({ route, navigation }) {
     fetchLimits();
     return () => { cancelled = true; };
   }, [selectedLeague]);
+
+  // Double weeks that let every team be picked exactly maxPicksPerTeam times -
+  // only for a pool covering the whole season (mirrors the backend's
+  // suggested_double_weeks).
+  useEffect(() => {
+    if (doubleWeeksTouched || !pickLimits) return;
+    const { team_count, remaining_gameweeks, total_gameweeks } = pickLimits;
+    const gap = (team_count || 0) * (parseInt(maxPicksPerTeam) || 0) - remaining_gameweeks;
+    const fullSeason = remaining_gameweeks >= total_gameweeks;
+    setDoubleWeeks(fullSeason && gap > 0 && gap <= 5 ? gap : 0);
+  }, [pickLimits, maxPicksPerTeam, doubleWeeksTouched]);
 
   const filteredLeagues = useMemo(() => {
     if (!leagueSearch.trim()) return leagues;
@@ -158,6 +176,7 @@ export default function JoinCreatePoolScreen({ route, navigation }) {
         has_lives: hasLives,
         total_lives: hasLives ? (parseInt(totalLives) || 3) : 0,
         max_picks_per_team: parseInt(maxPicksPerTeam) || 2,
+        double_weeks: hasLives ? 0 : doubleWeeks,
         creator_id: userId,
       });
       
@@ -410,6 +429,33 @@ export default function JoinCreatePoolScreen({ route, navigation }) {
                 </View>
               </View>
 
+              {!hasLives && (
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Double Weeks</Text>
+                  <View style={styles.counterContainer}>
+                    <TouchableOpacity
+                      style={styles.counterButton}
+                      onPress={() => { setDoubleWeeksTouched(true); setDoubleWeeks(Math.max(0, doubleWeeks - 1)); }}
+                    >
+                      <Ionicons name="remove" size={20} color={colors.textPrimary} />
+                    </TouchableOpacity>
+                    <Text style={styles.counterValue}>{doubleWeeks}</Text>
+                    <TouchableOpacity
+                      style={styles.counterButton}
+                      onPress={() => { setDoubleWeeksTouched(true); setDoubleWeeks(Math.min(5, doubleWeeks + 1)); }}
+                    >
+                      <Ionicons name="add" size={20} color={colors.textPrimary} />
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={styles.modeHint}>
+                    Gameweeks where a player can pick two teams and score both.
+                    {pickLimits && pickLimits.remaining_gameweeks >= pickLimits.total_gameweeks
+                      ? ' The suggested number lets every team be picked exactly the max times.'
+                      : ' This league has already started, so they are off by default.'}
+                  </Text>
+                </View>
+              )}
+
               <View style={styles.rulesPreview}>
                 <Text style={styles.rulesTitle}>Pool Rules Preview</Text>
                 {hasLives ? (
@@ -433,6 +479,14 @@ export default function JoinCreatePoolScreen({ route, navigation }) {
                     Each team can be picked up to {maxPicksPerTeam} times
                   </Text>
                 </View>
+                {!hasLives && doubleWeeks > 0 && (
+                  <View style={styles.ruleItem}>
+                    <Ionicons name="flash" size={16} color={colors.warning} />
+                    <Text style={styles.ruleText}>
+                      {doubleWeeks} double {doubleWeeks === 1 ? 'week' : 'weeks'} per player - pick two teams, score both
+                    </Text>
+                  </View>
+                )}
                 {hasLives ? (
                   <>
                     <View style={styles.ruleItem}>

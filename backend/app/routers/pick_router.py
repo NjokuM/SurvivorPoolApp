@@ -11,6 +11,7 @@ from app.schemas.pick_schema import PickCreate, PickRead, PickUpdate
 from app.crud.pick_crud import create_pick, get_user_picks, get_pool_picks, update_pick
 from app.crud.pool_crud import get_pool_user_stats, get_user_pools  # for validation
 from app.database import get_db
+from app.services import double_weeks
 from app.dependencies.security import get_current_user
 
 router = APIRouter(
@@ -81,13 +82,22 @@ async def create_pick_route(pick: PickCreate, db: AsyncSession = Depends(get_db)
         Fixture.gameweek == fixture.gameweek
     ))
 
-    existing_gameweek_pick = existing_gameweek_pick_result.scalars().first()
+    existing_gameweek_picks = existing_gameweek_pick_result.scalars().all()
 
-    if existing_gameweek_pick:
-        raise HTTPException(
-            status_code=400,
-            detail=f"You've already made a pick for gameweek {fixture.gameweek}."
-        )
+    if existing_gameweek_picks:
+        # A second pick is only allowed if the member switched on a double
+        # week for this gameweek - and never a third.
+        double_on = await double_weeks.is_active(db, pick.pool_id, pick.user_id, fixture.gameweek)
+        if not double_on or len(existing_gameweek_picks) >= 2:
+            raise HTTPException(
+                status_code=400,
+                detail=f"You've already made a pick for gameweek {fixture.gameweek}."
+            )
+        if any(p.fixture_id == fixture.id for p in existing_gameweek_picks):
+            raise HTTPException(
+                status_code=400,
+                detail="Your double week picks must be from different matches."
+            )
 
     # 8️⃣ Check if user still has lives (league mode has no lives at all -
     # total_lives is 0 for those pools, so this check would otherwise block
@@ -205,8 +215,8 @@ async def update_pick_route(
                 detail=f"You've already picked this team {pool.max_picks_per_team} times."
             )
 
-    # 4️⃣ Prevent multiple picks in one gameweek
-    existing_gameweek_pick = (await db.execute(
+    # 4️⃣ Prevent multiple picks in one gameweek (two with a double week on)
+    other_gameweek_picks = (await db.execute(
         select(Pick)
         .join(Fixture, Fixture.id == Pick.fixture_id)
         .filter(
@@ -215,13 +225,20 @@ async def update_pick_route(
             Fixture.gameweek == fixture.gameweek,
             Pick.id != pick_id
         )
-    )).scalars().first()
+    )).scalars().all()
 
-    if existing_gameweek_pick:
-        raise HTTPException(
-            status_code=400,
-            detail=f"You already have a pick for gameweek {fixture.gameweek}"
-        )
+    if other_gameweek_picks:
+        double_on = await double_weeks.is_active(db, pick.pool_id, pick.user_id, fixture.gameweek)
+        if not double_on or len(other_gameweek_picks) >= 2:
+            raise HTTPException(
+                status_code=400,
+                detail=f"You already have a pick for gameweek {fixture.gameweek}"
+            )
+        if any(p.fixture_id == fixture.id for p in other_gameweek_picks):
+            raise HTTPException(
+                status_code=400,
+                detail="Your double week picks must be from different matches."
+            )
 
     # 5️⃣ Perform update
     updated_pick = await update_pick(db, pick_id, updates)

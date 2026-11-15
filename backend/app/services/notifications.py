@@ -25,6 +25,7 @@ from app.models.pick import Pick
 from app.models.user import User
 from app.models.notification import PushToken, NotificationLog
 from app.services.push_notifications import send_push_notification
+from app.services import double_weeks
 
 # Half-width of each reminder's trigger window - wide enough that a 30-min
 # cron cadence can't skip past it entirely.
@@ -203,30 +204,58 @@ async def check_and_send_deadline_reminders(db: AsyncSession) -> dict:
     return {"checked_at": now.isoformat(), "sent": sent_counts}
 
 
+async def _team_name(db: AsyncSession, team_id) -> str | None:
+    if not team_id:
+        return None
+    team = (await db.execute(select(Team).where(Team.id == team_id))).scalar_one_or_none()
+    return team.name if team else None
+
+
+def _short_result(pick: Pick, team_name: str | None) -> str:
+    """"Arsenal W" - used when describing both picks of a double week."""
+    result_value = pick.result.value if hasattr(pick.result, "value") else pick.result
+    letter = {"WIN": "W", "DRAW": "D", "LOSS": "L"}.get(result_value, result_value)
+    return f"{team_name or 'your pick'} {letter}"
+
+
 async def notify_pick_results(db: AsyncSession, picks: List[Pick]) -> int:
     """Send a "your pick was processed" notification for each newly-scored
     pick (including NP/missed-pick records). Called right after
     process_gameweek_results commits its changes. Never raises - a push
-    failure must not roll back or interrupt results processing."""
+    failure must not roll back or interrupt results processing.
+
+    Double weeks (two picks in one gameweek) are deduped per pick rather
+    than per gameweek, since the two matches usually finish on different
+    days; if both are scored in the same run they're combined into one."""
     sent = 0
     today = datetime.now(timezone.utc).date()
 
+    # Group this run's picks by member + pool + gameweek.
+    groups: dict = {}
     for pick in picks:
-        pool_res = await db.execute(select(Pool).where(Pool.id == pick.pool_id))
+        fixture_res = await db.execute(select(Fixture).where(Fixture.id == pick.fixture_id))
+        fixture = fixture_res.scalar_one_or_none()
+        if not fixture or fixture.gameweek is None:
+            continue
+        groups.setdefault((pick.user_id, pick.pool_id, fixture.gameweek), []).append(pick)
+
+    for (user_id, pool_id, gameweek), group in groups.items():
+        pool_res = await db.execute(select(Pool).where(Pool.id == pool_id))
         pool = pool_res.scalar_one_or_none()
         if not pool:
             continue
 
-        fixture_res = await db.execute(select(Fixture).where(Fixture.id == pick.fixture_id))
-        fixture = fixture_res.scalar_one_or_none()
-        gameweek = fixture.gameweek if fixture else None
-        if gameweek is None:
-            continue
+        is_double = await double_weeks.is_active(db, pool_id, user_id, gameweek)
+        if is_double:
+            log_types = [f"pick_result:{p.id}" for p in group]
+            if all([await _already_sent(db, user_id, pool_id, gameweek, t, today) for t in log_types]):
+                continue
+        else:
+            log_types = ["pick_result"]
+            if await _already_sent(db, user_id, pool_id, gameweek, "pick_result", today):
+                continue
 
-        if await _already_sent(db, pick.user_id, pick.pool_id, gameweek, "pick_result", today):
-            continue
-
-        user_res = await db.execute(select(User).where(User.id == pick.user_id))
+        user_res = await db.execute(select(User).where(User.id == user_id))
         user = user_res.scalar_one_or_none()
         if not user or not user.notifications_enabled or not user.result_notifications_enabled:
             continue
@@ -234,17 +263,19 @@ async def notify_pick_results(db: AsyncSession, picks: List[Pick]) -> int:
         if not token:
             continue
 
+        pick = group[0]
         result_value = pick.result.value if hasattr(pick.result, "value") else pick.result
 
-        if result_value == "NP":
+        if is_double:
+            parts = [_short_result(p, await _team_name(db, p.team_id)) for p in group]
+            points = sum(p.points or 0 for p in group)
+            label = "Double week" if len(group) > 1 else "Double week pick"
+            body = f"⚡ {label} (GW{gameweek}, {pool.name}): {', '.join(parts)} · +{points} pts"
+        elif result_value == "NP":
             body = f"You missed gameweek {gameweek} in {pool.name}"
             body += " and lost a life." if pool.has_lives else " and scored 0 points."
         else:
-            team_name = None
-            if pick.team_id:
-                team_res = await db.execute(select(Team).where(Team.id == pick.team_id))
-                team = team_res.scalar_one_or_none()
-                team_name = team.name if team else None
+            team_name = await _team_name(db, pick.team_id)
             team_part = f"your pick ({team_name})" if team_name else "your pick"
 
             if result_value == "WIN":
@@ -257,10 +288,11 @@ async def notify_pick_results(db: AsyncSession, picks: List[Pick]) -> int:
 
         ok = await send_push_notification(
             token, "Pick result", body,
-            data={"pool_id": pick.pool_id, "gameweek": gameweek, "type": "pick_result"},
+            data={"pool_id": pool_id, "gameweek": gameweek, "type": "pick_result"},
         )
         if ok:
-            await _log_sent(db, pick.user_id, pick.pool_id, gameweek, "pick_result", today)
+            for log_type in log_types:
+                await _log_sent(db, user_id, pool_id, gameweek, log_type, today)
             sent += 1
 
     return sent

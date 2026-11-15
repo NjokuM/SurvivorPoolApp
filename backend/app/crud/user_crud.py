@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from app.models.user import User
 from app.models.pick import Pick
-from app.models.pool import Pool, PoolUserStats
+from app.models.pool import Pool, PoolUserStats, DoubleWeek
 from app.models.notification import PushToken, NotificationLog
 from app.schemas.user_schema import UserCreate
 from datetime import datetime
@@ -48,6 +48,7 @@ async def delete_user_account(db: AsyncSession, user_id: int) -> None:
         await db.execute(delete(Pick).where(Pick.pool_id == pool_id))
         await db.execute(delete(PoolUserStats).where(PoolUserStats.pool_id == pool_id))
         await db.execute(delete(NotificationLog).where(NotificationLog.pool_id == pool_id))
+        await db.execute(delete(DoubleWeek).where(DoubleWeek.pool_id == pool_id))
         await db.execute(delete(Pool).where(Pool.id == pool_id))
 
     # Membership in pools they didn't create (rows for owned pools above are
@@ -56,6 +57,7 @@ async def delete_user_account(db: AsyncSession, user_id: int) -> None:
     await db.execute(delete(PoolUserStats).where(PoolUserStats.user_id == user_id))
     await db.execute(delete(NotificationLog).where(NotificationLog.user_id == user_id))
     await db.execute(delete(PushToken).where(PushToken.user_id == user_id))
+    await db.execute(delete(DoubleWeek).where(DoubleWeek.user_id == user_id))
 
     await db.execute(delete(User).where(User.id == user_id))
     await db.commit()

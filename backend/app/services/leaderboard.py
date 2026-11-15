@@ -8,6 +8,7 @@ from app.models.pool import Pool, PoolUserStats
 from app.models.user import User
 from app.models.pick import Pick, PickResultEnum
 from app.models.competiton_data import Fixture, Team
+from app.services.double_weeks import double_pick_keys
 
 SCORED_RESULTS = (PickResultEnum.WIN, PickResultEnum.DRAW, PickResultEnum.LOSS)
 
@@ -203,6 +204,8 @@ async def get_team_picks(db: AsyncSession, pool: Pool, team: Team) -> List[Dict[
         .where(Pick.pool_id == pool.id, Pick.team_id == team.id)
     )
 
+    doubles = await double_pick_keys(db, pool.id)
+
     picks = []
     for pick, fixture, username in res.all():
         is_home = fixture.home_team_id == team.id
@@ -227,6 +230,7 @@ async def get_team_picks(db: AsyncSession, pool: Pool, team: Team) -> List[Dict[
             "opponent_goals": (away_goals if is_home else home_goals) if has_score else None,
             "result": pick.result.value if scored else None,
             "points": (pick.points or 0) if scored else 0,
+            "is_double": (pick.user_id, fixture.gameweek) in doubles,
         })
 
     picks.sort(key=lambda p: (-p["gameweek"], p["username"].lower()))

@@ -7,6 +7,7 @@ from sqlalchemy import select, func
 from app.models.competiton_data import Fixture
 from app.models.pick import Pick, PickResultEnum
 from app.models.pool import Pool, PoolUserStats
+from app.services.double_weeks import release_unused
 
 POINTS_FOR_WIN = 3
 POINTS_FOR_DRAW = 1
@@ -419,7 +420,11 @@ async def process_gameweek_results(
         # datetime for a tz-aware column - treat it as UTC rather than
         # letting the comparison below raise.
         last_kickoff = last_kickoff.replace(tzinfo=timezone.utc)
+    released_double_weeks = 0
     if datetime.now(timezone.utc) >= last_kickoff:
+        # Picking has closed - a double week switched on but left with one
+        # pick goes back to the member rather than being used up.
+        released_double_weeks = await release_unused(db, competition_id, gameweek)
         missed = await _detect_missed_picks(db, competition_id, gameweek, gameweek_fixtures)
         for key, data in missed["accum"].items():
             bucket = accum.setdefault(key, {"points": 0, "losses": 0})
@@ -428,6 +433,8 @@ async def process_gameweek_results(
         newly_scored_picks.extend(missed["np_picks"])
 
     if not accum:
+        if released_double_weeks:
+            await db.commit()
         return summary
 
     # Apply writes atomically

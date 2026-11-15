@@ -6,7 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
 from sqlalchemy.orm import selectinload
 from datetime import datetime
-from app.models.pool import Pool, PoolUserStats
+from app.models.pool import Pool, PoolUserStats, DoubleWeek
 from app.schemas.pool_schema import PoolCreate
 
 # --------------------------
@@ -232,6 +232,10 @@ async def delete_pool(db: AsyncSession, pool_id: int, user_id: int):
         delete(NotificationLog).where(NotificationLog.pool_id == pool_id)
     )
 
+    await db.execute(
+        delete(DoubleWeek).where(DoubleWeek.pool_id == pool_id)
+    )
+
     # Delete the pool
     await db.execute(
         delete(Pool).where(Pool.id == pool_id)
@@ -273,6 +277,10 @@ async def leave_pool(db: AsyncSession, pool_id: int, user_id: int):
     # Delete user stats
     await db.execute(
         delete(PoolUserStats).where(PoolUserStats.pool_id == pool_id, PoolUserStats.user_id == user_id)
+    )
+
+    await db.execute(
+        delete(DoubleWeek).where(DoubleWeek.pool_id == pool_id, DoubleWeek.user_id == user_id)
     )
     
     await db.commit()
