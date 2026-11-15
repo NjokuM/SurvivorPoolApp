@@ -7,6 +7,7 @@ import { useTheme } from '../theme/colors';
 import apiService from '../api/apiService';
 import { createStyles } from './styles/PoolDetailScreen.styles';
 import { formatGoalDifference } from '../utils/format';
+import { FEATURES } from '../config/features';
 
 export default function PoolDetailScreen({ route, navigation }) {
   const { poolId, userId, poolName } = route.params;
@@ -33,6 +34,8 @@ export default function PoolDetailScreen({ route, navigation }) {
   const [historyWeek, setHistoryWeek] = useState(null);
   const [historyFilter, setHistoryFilter] = useState('week'); // 'week' or 'user'
   const [selectedHistoryUser, setSelectedHistoryUser] = useState(null);
+  // Standings row expanded to show that player's picks
+  const [expandedStandingsUserId, setExpandedStandingsUserId] = useState(null);
   const [pickGameweek, setPickGameweek] = useState(null); // Gameweek for making picks
   const [doubleWeeks, setDoubleWeeks] = useState({ allowance: 0, used: 0, remaining: 0, active_gameweeks: [] });
   // In a double week with both picks made, which of the two a new selection replaces
@@ -62,7 +65,7 @@ export default function PoolDetailScreen({ route, navigation }) {
       setHasCurrentPick(data.hasCurrentPick || false);
       if (data.doubleWeeks) setDoubleWeeks(data.doubleWeeks);
       setAdminDoubleWeeks(data.pool?.double_weeks ?? 0);
-      setHistoryWeek(data.currentGameweek);
+      setHistoryWeek((week) => week ?? data.currentGameweek);
       if (!pickGameweek) setPickGameweek(data.currentGameweek); // Default to current gameweek
     } catch (error) {
       console.error('Error loading pool data:', error);
@@ -384,7 +387,15 @@ export default function PoolDetailScreen({ route, navigation }) {
     { id: 'teams', label: 'Teams', icon: 'shield' },
     { id: 'history', label: 'History', icon: 'time' },
     { id: 'info', label: 'Info', icon: 'information-circle' },
-  ];
+  ].filter((tab) => tab.id !== 'history' || FEATURES.historyTab);
+
+  // Gameweeks the Summary picks card can step through, and the newest-first
+  // list shown when a Standings row is expanded.
+  const firstGameweek = Math.min(pool?.start_gameweek || 1, currentGameweek || 1);
+  const summaryWeek = historyWeek ?? currentGameweek;
+  const playedGameweeks = currentGameweek
+    ? [...Array(currentGameweek - firstGameweek + 1)].map((_, i) => currentGameweek - i)
+    : [];
 
   return (
     <View style={styles.container}>
@@ -533,11 +544,29 @@ export default function PoolDetailScreen({ route, navigation }) {
             {/* Picks for This Week - All Pool Members */}
             <View style={styles.recentPickCard}>
               <View style={styles.cardHeader}>
-                <Text style={styles.cardTitle}>Picks This Week</Text>
-                <Text style={styles.cardSubtitle}>Gameweek {currentGameweek}</Text>
+                <Text style={styles.cardTitle}>
+                  {summaryWeek === currentGameweek ? 'Picks This Week' : 'Picks'}
+                </Text>
+                <View style={styles.summaryWeekSelector}>
+                  <TouchableOpacity
+                    style={styles.weekButton}
+                    onPress={() => setHistoryWeek(Math.max(firstGameweek, summaryWeek - 1))}
+                    disabled={summaryWeek <= firstGameweek}
+                  >
+                    <Ionicons name="chevron-back" size={18} color={summaryWeek <= firstGameweek ? colors.textMuted : colors.textPrimary} />
+                  </TouchableOpacity>
+                  <Text style={styles.cardSubtitle}>GW{summaryWeek}</Text>
+                  <TouchableOpacity
+                    style={styles.weekButton}
+                    onPress={() => setHistoryWeek(Math.min(currentGameweek, summaryWeek + 1))}
+                    disabled={summaryWeek >= currentGameweek}
+                  >
+                    <Ionicons name="chevron-forward" size={18} color={summaryWeek >= currentGameweek ? colors.textMuted : colors.textPrimary} />
+                  </TouchableOpacity>
+                </View>
               </View>
               {leaderboard.map((entry) => {
-                const memberPicks = allPoolPicks.filter(p => p.user_id === entry.user_id && p.gameweek === currentGameweek && p.team_id);
+                const memberPicks = allPoolPicks.filter(p => p.user_id === entry.user_id && p.gameweek === summaryWeek && p.team_id);
                 const isCurrentUser = entry.user_id === userId;
                 
                 return (
@@ -830,7 +859,7 @@ export default function PoolDetailScreen({ route, navigation }) {
           <>
             <View style={styles.standingsHeader}>
               <Text style={styles.standingsTitle}>Pool Standings</Text>
-              <Text style={styles.standingsSubtitle}>{leaderboard.length} players</Text>
+              <Text style={styles.standingsSubtitle}>{leaderboard.length} players · tap a player to see their picks</Text>
             </View>
 
             {/* Column Headers */}
@@ -848,10 +877,13 @@ export default function PoolDetailScreen({ route, navigation }) {
             {leaderboard.map((entry, index) => {
               const isCurrentUser = entry.user_id === userId;
               const pickCount = allPoolPicks.filter(p => p.user_id === entry.user_id).length;
+              const isExpanded = expandedStandingsUserId === entry.user_id;
               return (
-                <View 
-                  key={entry.user_id} 
+                <View key={entry.user_id}>
+                <TouchableOpacity
                   style={[styles.standingsRow, isCurrentUser && styles.standingsRowHighlight]}
+                  onPress={() => setExpandedStandingsUserId(isExpanded ? null : entry.user_id)}
+                  activeOpacity={0.7}
                 >
                   <View style={[
                     styles.standingsRank,
@@ -879,6 +911,26 @@ export default function PoolDetailScreen({ route, navigation }) {
                       ))}
                     </View>
                   )}
+                  <Ionicons
+                    name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                    size={16}
+                    color={colors.textMuted}
+                    style={{ marginLeft: 4 }}
+                  />
+                </TouchableOpacity>
+
+                {isExpanded && playedGameweeks.map((gw) => (
+                  <View key={gw} style={[styles.historyWeekRow, styles.teamPickSubRow]}>
+                    <View style={[styles.historyWeekBadge, styles.standingsPickBadge]}>
+                      <Text style={styles.historyWeekBadgeText}>GW{gw}</Text>
+                    </View>
+                    {renderHistoryPicks(
+                      allPoolPicks.filter(p => p.user_id === entry.user_id && p.gameweek === gw),
+                      styles.historyWeekTeam,
+                      'flex-start',
+                    )}
+                  </View>
+                ))}
                 </View>
               );
             })}

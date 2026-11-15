@@ -712,6 +712,14 @@ export const createStyles = (colors) => StyleSheet.create({
     fontWeight: '700',
     color: colors.textPrimary,
   },
+  summaryWeekSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  standingsPickBadge: {
+    // Sub-rows already use inputBackground, so lift the badge off it
+    backgroundColor: colors.surface,
+  },
   teamPickSubRow: {
     marginLeft: 24,
     paddingVertical: 10,
