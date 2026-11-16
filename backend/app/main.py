@@ -6,6 +6,7 @@ from app.routers import pick_router
 from app.routers import admin_routes
 from app.routers import double_week_router
 from app.routers import external_football_router
+import os
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
@@ -21,6 +22,14 @@ app.include_router(pick_router.router)
 app.include_router(admin_routes.router)
 app.include_router(double_week_router.router)
 app.include_router(external_football_router.router)
+
+
+@app.get("/version", tags=["Health"])
+async def version():
+    """Which commit is deployed - Railway sets RAILWAY_GIT_COMMIT_SHA on
+    GitHub deploys. Lets a deploy check confirm the new code is live, not
+    just that the old container is still answering."""
+    return {"commit": os.getenv("RAILWAY_GIT_COMMIT_SHA")}
 
 app.add_middleware(
     CORSMiddleware,
