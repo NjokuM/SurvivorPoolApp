@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, delete
 from app.database import get_db
 from app.models.user import User
 from app.models.notification import PushToken
@@ -117,7 +117,12 @@ async def register_push_token(
 ):
     """Register (or update) this device's Expo push token. One token per
     user - the most recently registered device is the one that gets
-    notified."""
+    notified. A device belongs to whoever signed in on it last, so the
+    token is taken off any other account that registered it - otherwise
+    one phone would keep getting every account's notifications."""
+    await db.execute(delete(PushToken).where(
+        PushToken.token == body.token, PushToken.user_id != current_user.id,
+    ))
     result = await db.execute(select(PushToken).where(PushToken.user_id == current_user.id))
     existing = result.scalar_one_or_none()
 

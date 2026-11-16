@@ -1,6 +1,6 @@
 # app/services/results_processor.py
 
-from typing import Dict, Tuple, List, Iterable
+from typing import Dict, Tuple, List, Iterable, Optional
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
@@ -383,7 +383,8 @@ async def process_gameweek_results(
     gameweek: int,
     *,
     allow_eliminated_to_play: bool = False,
-    apply_decrements_for_eliminated: bool = False
+    apply_decrements_for_eliminated: bool = False,
+    silent_member: Optional[Tuple[int, int]] = None,
 ) -> Dict[str, int]:
     """
     Clean, readable and fully idempotent results processor.
@@ -395,6 +396,10 @@ async def process_gameweek_results(
       its own fixture is FT - no need to wait for the rest of the gameweek.
     - Missed-pick detection only runs once the gameweek's *last* fixture has
       kicked off, since only then is it certain no more picks can arrive.
+
+    silent_member=(pool_id, user_id) skips result notifications for that
+    member - used when an admin's edit replays their past gameweeks, which
+    would otherwise re-announce every result they've already been told.
     """
     summary = {"picks_processed": 0, "points_awarded": 0, "lives_deducted": 0}
 
@@ -451,6 +456,8 @@ async def process_gameweek_results(
     touched_pools = await _load_pools_by_ids(db, (pool_id for pool_id, _ in accum.keys()))
     await _deactivate_concluded_pools(db, competition_id, gameweek, gameweek_fixtures, touched_pools)
 
+    if silent_member:
+        newly_scored_picks = [p for p in newly_scored_picks if (p.pool_id, p.user_id) != silent_member]
     if newly_scored_picks:
         # Notification failures must never break results processing - the
         # points/lives writes above have already committed successfully.

@@ -171,7 +171,7 @@ async def admin_set_user_picks(
     gameweeks_replayed: List[int] = []
     if max_finished_gameweek is not None:
         for gw in range(pool.start_gameweek, max_finished_gameweek + 1):
-            await process_gameweek_results(db, pool.competition_id, gw)
+            await process_gameweek_results(db, pool.competition_id, gw, silent_member=(pool_id, user_id))
             gameweeks_replayed.append(gw)
 
     await db.refresh(stats)
