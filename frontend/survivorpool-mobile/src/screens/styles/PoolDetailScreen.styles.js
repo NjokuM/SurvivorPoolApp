@@ -571,6 +571,88 @@ export const createStyles = (colors) => StyleSheet.create({
     fontSize: 13,
     color: colors.textMuted,
   },
+  // Standings league table
+  tableCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+    marginBottom: 16,
+  },
+  tableHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    backgroundColor: colors.inputBackground,
+  },
+  tableHeaderText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.textMuted,
+    textAlign: 'center',
+  },
+  tableRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 10,
+  },
+  tableRowDivider: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  tableRowHighlight: {
+    backgroundColor: colors.highlight + '15',
+  },
+  tableCellText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    textAlign: 'center',
+  },
+  tableMutedText: {
+    color: colors.textMuted,
+  },
+  tablePointsText: {
+    fontWeight: '800',
+  },
+  tableRankCell: {
+    width: 30,
+    alignItems: 'center',
+  },
+  tableRankBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: colors.inputBackground,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tableRankText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  tablePlayerCell: {
+    flex: 1,
+    textAlign: 'left',
+    paddingHorizontal: 6,
+  },
+  tablePlayerName: {
+    fontSize: 14,
+  },
+  tableStatCell: {
+    width: 24,
+  },
+  tableWideCell: {
+    width: 34,
+  },
+  tableLivesCell: {
+    width: 26,
+    textAlign: 'center',
+  },
   // Double Week Styles
   doubleWeekCard: {
     backgroundColor: colors.surface,

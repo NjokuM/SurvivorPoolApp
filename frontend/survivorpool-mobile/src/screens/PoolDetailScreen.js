@@ -877,75 +877,92 @@ export default function PoolDetailScreen({ route, navigation }) {
             <>
             <View style={styles.standingsHeader}>
               <Text style={styles.standingsTitle}>Pool Standings</Text>
-              <Text style={styles.standingsSubtitle}>{leaderboard.length} players · tap a player to see their picks</Text>
+              <Text style={styles.standingsSubtitle}>{leaderboard.length} players · tap a player to see their picks · missed weeks count as L</Text>
             </View>
 
-            {/* Column Headers */}
-            <View style={styles.standingsColumnHeader}>
-              <Text style={[styles.columnHeaderText, { width: 40 }]}>Rank</Text>
-              <Text style={[styles.columnHeaderText, { flex: 1 }]}>Player</Text>
-              <Text style={[styles.columnHeaderText, { width: 50, textAlign: 'center' }]}>Picks</Text>
-              <Text style={[styles.columnHeaderText, { width: 50, textAlign: 'center' }]}>Pts</Text>
-              <Text style={[styles.columnHeaderText, { width: 40, textAlign: 'center' }]}>GD</Text>
-              {pool?.has_lives !== false && (
-                <Text style={[styles.columnHeaderText, { width: 60, textAlign: 'center' }]}>Lives</Text>
-              )}
-            </View>
+            {/* League table - one card, P/W/D/L like a football table */}
+            <View style={styles.tableCard}>
+              <View style={styles.tableHeaderRow}>
+                <Text style={[styles.tableHeaderText, styles.tableRankCell]}>#</Text>
+                <Text style={[styles.tableHeaderText, styles.tablePlayerCell]}>Player</Text>
+                <Text style={[styles.tableHeaderText, styles.tableStatCell]}>P</Text>
+                <Text style={[styles.tableHeaderText, styles.tableStatCell]}>W</Text>
+                <Text style={[styles.tableHeaderText, styles.tableStatCell]}>D</Text>
+                <Text style={[styles.tableHeaderText, styles.tableStatCell]}>L</Text>
+                <Text style={[styles.tableHeaderText, styles.tableWideCell]}>GD</Text>
+                <Text style={[styles.tableHeaderText, styles.tableWideCell]}>Pts</Text>
+                {pool?.has_lives !== false && (
+                  <Ionicons name="heart" size={12} color={colors.textMuted} style={styles.tableLivesCell} />
+                )}
+              </View>
 
-            {leaderboard.map((entry, index) => {
-              const isCurrentUser = entry.user_id === userId;
-              const pickCount = allPoolPicks.filter(p => p.user_id === entry.user_id).length;
-              return (
-                <TouchableOpacity
-                  key={entry.user_id}
-                  style={[styles.standingsRow, isCurrentUser && styles.standingsRowHighlight]}
-                  onPress={() => navigation.navigate('PlayerPicks', {
-                    username: entry.username,
-                    isCurrentUser,
-                    totalPoints: entry.total_points || 0,
-                    goalDifference: entry.goal_difference,
-                    livesLeft: pool?.has_lives !== false ? (entry.lives_left || 0) : null,
-                    gameweeks: playedGameweeks,
-                    picks: allPoolPicks
-                      .filter(p => p.user_id === entry.user_id && p.team_id)
-                      .map(p => ({
-                        id: p.id,
-                        gameweek: p.gameweek,
-                        result: p.result?.toUpperCase(),
-                        teamName: teams.find(t => t.id === p.team_id)?.name || 'TBD',
-                      })),
-                  })}
-                  activeOpacity={0.7}
-                >
-                  <View style={[
-                    styles.standingsRank,
-                    index === 0 && styles.standingsRankGold,
-                    index === 1 && styles.standingsRankSilver,
-                    index === 2 && styles.standingsRankBronze,
-                  ]}>
-                    <Text style={styles.standingsRankText}>{index + 1}</Text>
-                  </View>
-                  <View style={styles.standingsInfo}>
-                    <Text style={[styles.standingsName, isCurrentUser && styles.standingsNameHighlight]}>
-                      {entry.username} {isCurrentUser && '(You)'}
-                    </Text>
-                  </View>
-                  <Text style={styles.standingsStatText}>{pickCount}</Text>
-                  <Text style={[styles.standingsStatText, styles.standingsPoints]}>{entry.total_points || 0}</Text>
-                  <Text style={[styles.standingsStatText, styles.standingsGd]}>{formatGoalDifference(entry.goal_difference)}</Text>
-                  {pool?.has_lives !== false && (
-                    <View style={styles.standingsLives}>
-                      {[...Array(entry.lives_left || 0)].map((_, i) => (
-                        <Ionicons key={i} name="heart" size={12} color={colors.heart} />
-                      ))}
-                      {[...Array(Math.max(0, (pool?.total_lives || 3) - (entry.lives_left || 0)))].map((_, i) => (
-                        <Ionicons key={`e-${i}`} name="heart-outline" size={12} color={colors.heartEmpty} />
-                      ))}
+              {leaderboard.map((entry, index) => {
+                const isCurrentUser = entry.user_id === userId;
+                // Scored picks only. A missed week (NP) counts as a loss -
+                // it costs a life / scores nothing, just like losing.
+                const results = allPoolPicks
+                  .filter(p => p.user_id === entry.user_id && p.result)
+                  .map(p => p.result.toUpperCase());
+                const wins = results.filter(r => r === 'WIN').length;
+                const draws = results.filter(r => r === 'DRAW').length;
+                const losses = results.filter(r => r === 'LOSS' || r === 'NP').length;
+                return (
+                  <TouchableOpacity
+                    key={entry.user_id}
+                    style={[styles.tableRow, index > 0 && styles.tableRowDivider, isCurrentUser && styles.tableRowHighlight]}
+                    onPress={() => navigation.navigate('PlayerPicks', {
+                      username: entry.username,
+                      isCurrentUser,
+                      totalPoints: entry.total_points || 0,
+                      goalDifference: entry.goal_difference,
+                      livesLeft: pool?.has_lives !== false ? (entry.lives_left || 0) : null,
+                      gameweeks: playedGameweeks,
+                      picks: allPoolPicks
+                        .filter(p => p.user_id === entry.user_id && p.team_id)
+                        .map(p => ({
+                          id: p.id,
+                          gameweek: p.gameweek,
+                          result: p.result?.toUpperCase(),
+                          teamName: teams.find(t => t.id === p.team_id)?.name || 'TBD',
+                        })),
+                    })}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.tableRankCell}>
+                      <View style={[
+                        styles.tableRankBadge,
+                        index === 0 && styles.standingsRankGold,
+                        index === 1 && styles.standingsRankSilver,
+                        index === 2 && styles.standingsRankBronze,
+                      ]}>
+                        <Text style={styles.tableRankText}>{index + 1}</Text>
+                      </View>
                     </View>
-                  )}
-                </TouchableOpacity>
-              );
-            })}
+                    <Text
+                      style={[styles.tableCellText, styles.tablePlayerCell, styles.tablePlayerName, isCurrentUser && styles.standingsNameHighlight]}
+                      numberOfLines={1}
+                    >
+                      {entry.username}
+                    </Text>
+                    <Text style={[styles.tableCellText, styles.tableStatCell]}>{results.length}</Text>
+                    <Text style={[styles.tableCellText, styles.tableStatCell]}>{wins}</Text>
+                    <Text style={[styles.tableCellText, styles.tableStatCell]}>{draws}</Text>
+                    <Text style={[styles.tableCellText, styles.tableStatCell]}>{losses}</Text>
+                    <Text style={[styles.tableCellText, styles.tableWideCell, styles.tableMutedText]}>
+                      {formatGoalDifference(entry.goal_difference)}
+                    </Text>
+                    <Text style={[styles.tableCellText, styles.tableWideCell, styles.tablePointsText]}>
+                      {entry.total_points || 0}
+                    </Text>
+                    {pool?.has_lives !== false && (
+                      <Text style={[styles.tableCellText, styles.tableLivesCell, (entry.lives_left || 0) === 0 && styles.tableMutedText]}>
+                        {entry.lives_left || 0}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
             </>
             )}
 
