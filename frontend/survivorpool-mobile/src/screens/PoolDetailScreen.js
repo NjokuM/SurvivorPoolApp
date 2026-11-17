@@ -920,12 +920,23 @@ export default function PoolDetailScreen({ route, navigation }) {
                       gameweeks: playedGameweeks,
                       picks: allPoolPicks
                         .filter(p => p.user_id === entry.user_id && p.team_id)
-                        .map(p => ({
-                          id: p.id,
-                          gameweek: p.gameweek,
-                          result: p.result?.toUpperCase(),
-                          teamName: teams.find(t => t.id === p.team_id)?.name || 'TBD',
-                        })),
+                        .map(p => {
+                          const fixture = fixtures.find(f => f.id === p.fixture_id);
+                          const isHome = fixture ? fixture.home_team_id === p.team_id : null;
+                          const opponentId = fixture ? (isHome ? fixture.away_team_id : fixture.home_team_id) : null;
+                          const hasScore = p.home_score !== null && p.home_score !== undefined;
+                          return {
+                            id: p.id,
+                            gameweek: p.gameweek,
+                            result: p.result?.toUpperCase(),
+                            points: p.points,
+                            teamName: teams.find(t => t.id === p.team_id)?.name || 'TBD',
+                            opponentName: teams.find(t => t.id === opponentId)?.name || null,
+                            isHome,
+                            teamGoals: hasScore ? (isHome ? p.home_score : p.away_score) : null,
+                            opponentGoals: hasScore ? (isHome ? p.away_score : p.home_score) : null,
+                          };
+                        }),
                     })}
                     activeOpacity={0.7}
                   >
