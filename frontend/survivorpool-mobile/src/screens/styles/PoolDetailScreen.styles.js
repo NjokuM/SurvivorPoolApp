@@ -571,6 +571,96 @@ export const createStyles = (colors) => StyleSheet.create({
     fontSize: 13,
     color: colors.textMuted,
   },
+  // Standings league table
+  tableCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+    marginBottom: 16,
+  },
+  tableHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 10,
+    backgroundColor: colors.inputBackground,
+  },
+  tableHeaderText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textMuted,
+    textAlign: 'center',
+  },
+  tableRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 14,
+  },
+  tableRowDivider: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  tableRowHighlight: {
+    backgroundColor: colors.highlight + '15',
+  },
+  tableCellText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    textAlign: 'center',
+  },
+  tableMutedText: {
+    color: colors.textMuted,
+  },
+  tablePointsText: {
+    fontWeight: '800',
+  },
+  tableRankCell: {
+    width: 36,
+    alignItems: 'center',
+  },
+  tableRankBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.inputBackground,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tableRankText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  tablePlayerCell: {
+    flex: 1,
+    textAlign: 'left',
+    paddingHorizontal: 6,
+  },
+  tablePlayerName: {
+    fontSize: 15,
+  },
+  tableStatCell: {
+    width: 26,
+  },
+  tableWideCell: {
+    width: 36,
+  },
+  tableLivesCell: {
+    width: 28,
+    textAlign: 'center',
+  },
+  tableChevronCell: {
+    width: 16,
+    textAlign: 'right',
+  },
+  tableTeamLogo: {
+    width: 20,
+    height: 20,
+  },
   // Double Week Styles
   doubleWeekCard: {
     backgroundColor: colors.surface,
