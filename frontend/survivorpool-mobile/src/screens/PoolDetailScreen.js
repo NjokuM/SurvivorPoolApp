@@ -892,7 +892,7 @@ export default function PoolDetailScreen({ route, navigation }) {
                 <Text style={[styles.tableHeaderText, styles.tableWideCell]}>GD</Text>
                 <Text style={[styles.tableHeaderText, styles.tableWideCell]}>Pts</Text>
                 {pool?.has_lives !== false && (
-                  <Ionicons name="heart" size={12} color={colors.textMuted} style={styles.tableLivesCell} />
+                  <Ionicons name="heart" size={14} color={colors.textMuted} style={styles.tableLivesCell} />
                 )}
               </View>
 

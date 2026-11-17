@@ -584,11 +584,11 @@ export const createStyles = (colors) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 8,
-    paddingVertical: 8,
+    paddingVertical: 10,
     backgroundColor: colors.inputBackground,
   },
   tableHeaderText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
     color: colors.textMuted,
     textAlign: 'center',
@@ -597,7 +597,7 @@ export const createStyles = (colors) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 8,
-    paddingVertical: 10,
+    paddingVertical: 14,
   },
   tableRowDivider: {
     borderTopWidth: 1,
@@ -607,7 +607,7 @@ export const createStyles = (colors) => StyleSheet.create({
     backgroundColor: colors.highlight + '15',
   },
   tableCellText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
     color: colors.textPrimary,
     textAlign: 'center',
@@ -619,19 +619,19 @@ export const createStyles = (colors) => StyleSheet.create({
     fontWeight: '800',
   },
   tableRankCell: {
-    width: 30,
+    width: 36,
     alignItems: 'center',
   },
   tableRankBadge: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: colors.inputBackground,
     justifyContent: 'center',
     alignItems: 'center',
   },
   tableRankText: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '700',
     color: colors.textPrimary,
   },
@@ -641,16 +641,16 @@ export const createStyles = (colors) => StyleSheet.create({
     paddingHorizontal: 6,
   },
   tablePlayerName: {
-    fontSize: 14,
+    fontSize: 15,
   },
   tableStatCell: {
-    width: 24,
+    width: 26,
   },
   tableWideCell: {
-    width: 34,
+    width: 36,
   },
   tableLivesCell: {
-    width: 26,
+    width: 28,
     textAlign: 'center',
   },
   // Double Week Styles
