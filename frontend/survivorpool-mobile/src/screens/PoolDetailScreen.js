@@ -894,6 +894,7 @@ export default function PoolDetailScreen({ route, navigation }) {
                 {pool?.has_lives !== false && (
                   <Ionicons name="heart" size={14} color={colors.textMuted} style={styles.tableLivesCell} />
                 )}
+                <View style={styles.tableChevronCell} />
               </View>
 
               {leaderboard.map((entry, index) => {
@@ -959,6 +960,7 @@ export default function PoolDetailScreen({ route, navigation }) {
                         {entry.lives_left || 0}
                       </Text>
                     )}
+                    <Ionicons name="chevron-forward" size={14} color={colors.textMuted} style={styles.tableChevronCell} />
                   </TouchableOpacity>
                 );
               })}
@@ -971,54 +973,71 @@ export default function PoolDetailScreen({ route, navigation }) {
             <>
             <View style={styles.standingsHeader}>
               <Text style={styles.standingsTitle}>Team Leaderboard</Text>
-              <Text style={styles.standingsSubtitle}>Points earned by players picking each team</Text>
+              <Text style={styles.standingsSubtitle}>Points players earned picking each team · tap a team to see who picked them</Text>
             </View>
 
-            <View style={styles.standingsColumnHeader}>
-              <Text style={[styles.columnHeaderText, { width: 44 }]}>Rank</Text>
-              <Text style={[styles.columnHeaderText, { flex: 1 }]}>Team</Text>
-              <Text style={[styles.columnHeaderText, { width: 44, textAlign: 'center' }]}>Picks</Text>
-              <Text style={[styles.columnHeaderText, { width: 40, textAlign: 'center' }]}>GD</Text>
-              <Text style={[styles.columnHeaderText, { width: 44, textAlign: 'center' }]}>Pts</Text>
-              <View style={{ width: 16 }} />
-            </View>
-
-            {teamLeaderboard.length === 0 && (
+            {teamLeaderboard.length === 0 ? (
               <Text style={styles.historySubtitle}>No team data yet</Text>
-            )}
+            ) : (
+            <View style={styles.tableCard}>
+              <View style={styles.tableHeaderRow}>
+                <Text style={[styles.tableHeaderText, styles.tableRankCell]}>#</Text>
+                <Text style={[styles.tableHeaderText, styles.tablePlayerCell]}>Team</Text>
+                <Text style={[styles.tableHeaderText, styles.tableStatCell]}>P</Text>
+                <Text style={[styles.tableHeaderText, styles.tableStatCell]}>W</Text>
+                <Text style={[styles.tableHeaderText, styles.tableStatCell]}>D</Text>
+                <Text style={[styles.tableHeaderText, styles.tableStatCell]}>L</Text>
+                <Text style={[styles.tableHeaderText, styles.tableWideCell]}>GD</Text>
+                <Text style={[styles.tableHeaderText, styles.tableWideCell]}>Pts</Text>
+                <View style={styles.tableChevronCell} />
+              </View>
 
-            {teamLeaderboard.map((team) => (
-              <TouchableOpacity
-                key={team.team_id}
-                style={styles.standingsRow}
-                onPress={() => navigation.navigate('TeamPicks', {
-                  poolId,
-                  userId,
-                  teamId: team.team_id,
-                  teamName: team.team_name,
-                  teamLogo: team.logo,
-                })}
-              >
-                <View style={[
-                  styles.standingsRank,
-                  team.total_points > 0 && team.rank === 1 && styles.standingsRankGold,
-                  team.total_points > 0 && team.rank === 2 && styles.standingsRankSilver,
-                  team.total_points > 0 && team.rank === 3 && styles.standingsRankBronze,
-                ]}>
-                  <Text style={styles.standingsRankText}>{team.rank}</Text>
-                </View>
-                <View style={[styles.standingsInfo, styles.teamRowInfo]}>
-                  {team.logo ? (
-                    <Image source={{ uri: team.logo }} style={styles.teamRowLogo} resizeMode="contain" />
-                  ) : null}
-                  <Text style={styles.standingsName} numberOfLines={1}>{team.team_name}</Text>
-                </View>
-                <Text style={[styles.standingsStatText, { width: 44 }]}>{team.times_picked}</Text>
-                <Text style={[styles.standingsStatText, styles.standingsGd]}>{formatGoalDifference(team.goal_difference)}</Text>
-                <Text style={[styles.standingsStatText, { width: 44 }]}>{team.total_points}</Text>
-                <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
-              </TouchableOpacity>
-            ))}
+              {teamLeaderboard.map((team, index) => (
+                <TouchableOpacity
+                  key={team.team_id}
+                  style={[styles.tableRow, index > 0 && styles.tableRowDivider]}
+                  onPress={() => navigation.navigate('TeamPicks', {
+                    poolId,
+                    userId,
+                    teamId: team.team_id,
+                    teamName: team.team_name,
+                    teamLogo: team.logo,
+                  })}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.tableRankCell}>
+                    <View style={[
+                      styles.tableRankBadge,
+                      team.total_points > 0 && team.rank === 1 && styles.standingsRankGold,
+                      team.total_points > 0 && team.rank === 2 && styles.standingsRankSilver,
+                      team.total_points > 0 && team.rank === 3 && styles.standingsRankBronze,
+                    ]}>
+                      <Text style={styles.tableRankText}>{team.rank}</Text>
+                    </View>
+                  </View>
+                  <View style={[styles.tablePlayerCell, styles.teamRowInfo, { gap: 6 }]}>
+                    {team.logo ? (
+                      <Image source={{ uri: team.logo }} style={styles.tableTeamLogo} resizeMode="contain" />
+                    ) : null}
+                    <Text style={[styles.tableCellText, styles.tablePlayerName, { flexShrink: 1, textAlign: 'left' }]} numberOfLines={1}>
+                      {team.team_name}
+                    </Text>
+                  </View>
+                  <Text style={[styles.tableCellText, styles.tableStatCell]}>{team.wins + team.draws + team.losses}</Text>
+                  <Text style={[styles.tableCellText, styles.tableStatCell]}>{team.wins}</Text>
+                  <Text style={[styles.tableCellText, styles.tableStatCell]}>{team.draws}</Text>
+                  <Text style={[styles.tableCellText, styles.tableStatCell]}>{team.losses}</Text>
+                  <Text style={[styles.tableCellText, styles.tableWideCell, styles.tableMutedText]}>
+                    {formatGoalDifference(team.goal_difference)}
+                  </Text>
+                  <Text style={[styles.tableCellText, styles.tableWideCell, styles.tablePointsText]}>
+                    {team.total_points}
+                  </Text>
+                  <Ionicons name="chevron-forward" size={14} color={colors.textMuted} style={styles.tableChevronCell} />
+                </TouchableOpacity>
+              ))}
+            </View>
+            )}
             </>
             )}
           </>

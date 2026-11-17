@@ -653,6 +653,14 @@ export const createStyles = (colors) => StyleSheet.create({
     width: 28,
     textAlign: 'center',
   },
+  tableChevronCell: {
+    width: 16,
+    textAlign: 'right',
+  },
+  tableTeamLogo: {
+    width: 20,
+    height: 20,
+  },
   // Double Week Styles
   doubleWeekCard: {
     backgroundColor: colors.surface,
